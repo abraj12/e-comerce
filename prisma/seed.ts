@@ -264,60 +264,71 @@ async function main() {
   console.log('Sample retail products, variants and inventory items generated.');
 
   // 4. Delivery Zones
-  await prisma.deliveryZone.createMany({
-    data: [
-      {
-        name: 'Central City Sector',
-        pinCodes: '560001, 560002, 560025, 560009',
-        deliveryFee: 30.0,
-        minOrderForFreeDelivery: 350.0,
-        estimatedDeliveryHours: 4
-      },
-      {
-        name: 'East District & Tech Corridor',
-        pinCodes: '560038, 560075, 560008, 560066',
-        deliveryFee: 40.0,
-        minOrderForFreeDelivery: 500.0,
-        estimatedDeliveryHours: 6
-      },
-      {
-        name: 'South Sector & Residential Enclave',
-        pinCodes: '560034, 560095, 560068, 560076',
-        deliveryFee: 45.0,
-        minOrderForFreeDelivery: 600.0,
-        estimatedDeliveryHours: 8
-      }
-    ]
-  });
+  const zones = [
+    {
+      name: 'Central City Sector',
+      pinCodes: '560001, 560002, 560025, 560009',
+      deliveryFee: 30.0,
+      minOrderForFreeDelivery: 350.0,
+      estimatedDeliveryHours: 4
+    },
+    {
+      name: 'East District & Tech Corridor',
+      pinCodes: '560038, 560075, 560008, 560066',
+      deliveryFee: 40.0,
+      minOrderForFreeDelivery: 500.0,
+      estimatedDeliveryHours: 6
+    },
+    {
+      name: 'South Sector & Residential Enclave',
+      pinCodes: '560034, 560095, 560068, 560076',
+      deliveryFee: 45.0,
+      minOrderForFreeDelivery: 600.0,
+      estimatedDeliveryHours: 8
+    }
+  ];
+
+  for (const z of zones) {
+    const existing = await prisma.deliveryZone.findFirst({ where: { name: z.name } });
+    if (!existing) {
+      await prisma.deliveryZone.create({ data: z });
+    }
+  }
 
   // 5. Promotional Coupons
-  await prisma.coupon.createMany({
-    data: [
-      {
-        code: 'SAVE10',
-        discountType: DiscountType.PERCENTAGE,
-        discountValue: 10.0,
-        minOrderAmount: 200.0,
-        maxDiscountAmount: 150.0,
-        usageLimit: 1000
-      },
-      {
-        code: 'WELCOME50',
-        discountType: DiscountType.FIXED,
-        discountValue: 50.0,
-        minOrderAmount: 300.0,
-        usageLimit: 500
-      },
-      {
-        code: 'FESTIVE20',
-        discountType: DiscountType.PERCENTAGE,
-        discountValue: 20.0,
-        minOrderAmount: 800.0,
-        maxDiscountAmount: 300.0,
-        usageLimit: 200
-      }
-    ]
-  });
+  const coupons = [
+    {
+      code: 'SAVE10',
+      discountType: DiscountType.PERCENTAGE,
+      discountValue: 10.0,
+      minOrderAmount: 200.0,
+      maxDiscountAmount: 150.0,
+      usageLimit: 1000
+    },
+    {
+      code: 'WELCOME50',
+      discountType: DiscountType.FIXED,
+      discountValue: 50.0,
+      minOrderAmount: 300.0,
+      usageLimit: 500
+    },
+    {
+      code: 'FESTIVE20',
+      discountType: DiscountType.PERCENTAGE,
+      discountValue: 20.0,
+      minOrderAmount: 800.0,
+      maxDiscountAmount: 300.0,
+      usageLimit: 200
+    }
+  ];
+
+  for (const c of coupons) {
+    await prisma.coupon.upsert({
+      where: { code: c.code },
+      update: {},
+      create: c
+    });
+  }
 
   console.log('Delivery service zones and coupons seeded successfully.');
   console.log('Database seeding complete.');
