@@ -68,8 +68,8 @@ function renderAuthButtons(user) {
     `;
   } else {
     container.innerHTML = `
-      <button class="btn btn-outline btn-sm" onclick="openModal('authModal')">Login / Register</button>
-      <a href="/admin/" class="btn btn-outline btn-sm">Staff Login</a>
+      <a href="/login" class="btn btn-outline btn-sm">Sign In / Register</a>
+      <a href="/admin/login" class="btn btn-outline btn-sm">Staff Login</a>
     `;
   }
 }

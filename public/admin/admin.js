@@ -12,7 +12,7 @@ function getAuthHeader() {
 async function checkAdminAuth() {
   const token = localStorage.getItem('token');
   if (!token) {
-    showLoginModal();
+    window.location.href = '/admin/login';
     return;
   }
 
@@ -24,17 +24,16 @@ async function checkAdminAuth() {
 
     if (!data.success || !data.data || data.data.role === 'CUSTOMER') {
       localStorage.removeItem('token');
-      showLoginModal();
+      window.location.href = '/admin/login';
       return;
     }
 
     currentAdminUser = data.data;
     document.getElementById('adminUserName').textContent = currentAdminUser.name;
     document.getElementById('adminUserRole').textContent = currentAdminUser.role;
-    hideLoginModal();
     loadDashboard();
   } catch {
-    showLoginModal();
+    window.location.href = '/admin/login';
   }
 }
 
@@ -80,7 +79,7 @@ async function handleAdminLogin(event) {
 
 function adminLogout() {
   localStorage.removeItem('token');
-  location.reload();
+  window.location.href = '/admin/login';
 }
 
 function switchTab(sectionId, element) {

@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Staff Portal Sign In | ALGIONS Operations</title>
+  <link rel="stylesheet" href="/admin/admin.css" />
+  <style>
+    body {
+      background: #0f172a;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    .admin-login-card {
+      background: #1e293b;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      width: 100%;
+      max-width: 460px;
+      padding: 2.5rem;
+      color: #f8fafc;
+    }
+    .admin-logo {
+      text-align: center;
+      margin-bottom: 1.75rem;
+    }
+    .admin-logo h1 {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: #38bdf8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+    .admin-logo p {
+      color: #94a3b8;
+      font-size: 0.875rem;
+      margin-top: 0.35rem;
+    }
+    .demo-roles-box {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 0.85rem 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .demo-roles-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #94a3b8;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+    .demo-role-buttons {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem;
+    }
+    .demo-role-btn {
+      background: #334155;
+      color: #e2e8f0;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 0.4rem 0.5rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.15s;
+    }
+    .demo-role-btn:hover {
+      background: #0284c7;
+      color: white;
+    }
+    .form-group {
+      margin-bottom: 1.2rem;
+      text-align: left;
+    }
+    .form-group label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #cbd5e1;
+      margin-bottom: 0.35rem;
+    }
+    .form-control {
+      width: 100%;
+      padding: 0.75rem 0.9rem;
+      background: #0f172a;
+      border: 1px solid #475569;
+      border-radius: 8px;
+      color: #f8fafc;
+      font-size: 0.95rem;
+      outline: none;
+      box-sizing: border-box;
+    }
+    .form-control:focus {
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+    }
+    .btn-submit {
+      width: 100%;
+      background: #0284c7;
+      color: white;
+      border: none;
+      padding: 0.85rem;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 0.5rem;
+      transition: background 0.2s;
+    }
+    .btn-submit:hover {
+      background: #0369a1;
+    }
+    .btn-submit:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .error-banner {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid #ef4444;
+      color: #fca5a5;
+      padding: 0.75rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      margin-bottom: 1rem;
+      display: none;
+    }
+    .success-banner {
+      background: rgba(34, 197, 94, 0.15);
+      border: 1px solid #22c55e;
+      color: #86efac;
+      padding: 0.75rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      margin-bottom: 1rem;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="admin-login-card">
+    <div class="admin-logo">
+      <h1>🏢 ALGIONS Operations</h1>
+      <p>Store Staff & Administration Portal</p>
+    </div>
+
+    <!-- 1-Click Role Quick Fill -->
+    <div class="demo-roles-box">
+      <div class="demo-roles-title">⚡ Quick Fill Demo Staff Roles:</div>
+      <div class="demo-role-buttons">
+        <button type="button" class="demo-role-btn" onclick="fillRole('admin@algions.local', 'Admin@123456')">
+          👑 Administrator
+        </button>
+        <button type="button" class="demo-role-btn" onclick="fillRole('manager@algions.local', 'Staff@123456')">
+          📊 Operations Manager
+        </button>
+        <button type="button" class="demo-role-btn" onclick="fillRole('staff@algions.local', 'Staff@123456')">
+          📦 Inventory Staff
+        </button>
+        <button type="button" class="demo-role-btn" onclick="fillRole('rider@algions.local', 'Rider@123456')">
+          🛵 Delivery Rider
+        </button>
+      </div>
+    </div>
+
+    <div id="errorBanner" class="error-banner"></div>
+    <div id="successBanner" class="success-banner"></div>
+
+    <form id="adminLoginForm" onsubmit="submitAdminLogin(event)">
+      <div class="form-group">
+        <label>Employee Email Address</label>
+        <input type="email" id="adminEmail" class="form-control" required placeholder="staff@algions.local" value="admin@algions.local" />
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="adminPassword" class="form-control" required placeholder="••••••••" value="Admin@123456" />
+      </div>
+      <button type="submit" id="adminLoginBtn" class="btn-submit">
+        Authenticate & Enter Portal →
+      </button>
+    </form>
+
+    <div style="text-align: center; margin-top: 1.5rem; font-size: 0.85rem; color: #94a3b8;">
+      Are you a retail customer? <a href="/login" style="color: #38bdf8; text-decoration: none; font-weight: 600;">Customer Sign In</a>
+      &bull; <a href="/" style="color: #94a3b8; text-decoration: none;">View Storefront</a>
+    </div>
+  </div>
+
+  <script>
+    function fillRole(email, password) {
+      document.getElementById('adminEmail').value = email;
+      document.getElementById('adminPassword').value = password;
+      hideBanners();
+    }
+
+    function showError(msg) {
+      const b = document.getElementById('errorBanner');
+      b.textContent = msg;
+      b.style.display = 'block';
+      document.getElementById('successBanner').style.display = 'none';
+    }
+
+    function showSuccess(msg) {
+      const b = document.getElementById('successBanner');
+      b.textContent = msg;
+      b.style.display = 'block';
+      document.getElementById('errorBanner').style.display = 'none';
+    }
+
+    function hideBanners() {
+      document.getElementById('errorBanner').style.display = 'none';
+      document.getElementById('successBanner').style.display = 'none';
+    }
+
+    async function submitAdminLogin(e) {
+      e.preventDefault();
+      hideBanners();
+      const btn = document.getElementById('adminLoginBtn');
+      btn.disabled = true;
+      btn.textContent = 'Verifying credentials...';
+
+      const email = document.getElementById('adminEmail').value.trim();
+      const password = document.getElementById('adminPassword').value;
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Authentication failed');
+
+        if (data.data.user.role === 'CUSTOMER') {
+          throw new Error('Access denied: Staff or Administrator account required. Use customer login instead.');
+        }
+
+        localStorage.setItem('token', data.data.accessToken);
+        showSuccess('Authenticated as ' + data.data.user.role + ' (' + data.data.user.name + '). Loading dashboard...');
+        setTimeout(() => {
+          window.location.href = '/admin/';
+        }, 800);
+      } catch (err) {
+        showError(err.message);
+        btn.disabled = false;
+        btn.textContent = 'Authenticate & Enter Portal →';
+      }
+    }
+  </script>
+</body>
+</html>

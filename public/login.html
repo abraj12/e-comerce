@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign In & Register | ALGIONS Retail Mart</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <style>
+    body {
+      background: #f1f5f9;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .auth-page-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+    .auth-card {
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+      width: 100%;
+      max-width: 440px;
+      padding: 2.25rem;
+    }
+    .auth-brand {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+    .auth-brand h1 {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #0f172a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+    .auth-tabs {
+      display: flex;
+      border-bottom: 2px solid #e2e8f0;
+      margin-bottom: 1.5rem;
+    }
+    .auth-tab-btn {
+      flex: 1;
+      padding: 0.75rem;
+      background: transparent;
+      border: none;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #64748b;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.2s;
+    }
+    .auth-tab-btn.active {
+      color: #2563eb;
+      border-bottom: 2px solid #2563eb;
+      margin-bottom: -2px;
+    }
+    .quick-fill-box {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 10px;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.85rem;
+    }
+    .quick-fill-btn {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+    .quick-fill-btn:hover {
+      background: #1d4ed8;
+    }
+    .error-banner {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #dc2626;
+      border-radius: 8px;
+      padding: 0.75rem;
+      font-size: 0.85rem;
+      margin-bottom: 1rem;
+      display: none;
+    }
+    .success-banner {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      color: #16a34a;
+      border-radius: 8px;
+      padding: 0.75rem;
+      font-size: 0.85rem;
+      margin-bottom: 1rem;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="nav-container" style="justify-content: space-between;">
+      <a href="/" class="brand">
+        🛒 ALGIONS
+        <span class="brand-badge">Local Retail</span>
+      </a>
+      <div style="display: flex; gap: 0.75rem; align-items: center;">
+        <a href="/" class="btn btn-outline btn-sm">← Back to Storefront</a>
+        <a href="/admin/login" class="btn btn-outline btn-sm">Staff Portal →</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Content -->
+  <div class="auth-page-container">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <h1>🛒 ALGIONS Retail</h1>
+        <p style="color: #64748b; font-size: 0.875rem; margin-top: 0.25rem;">Sign in to your customer account</p>
+      </div>
+
+      <div class="quick-fill-box">
+        <div>
+          <strong>Demo Customer</strong><br/>
+          <span style="color: #475569; font-size: 0.8rem;">customer@example.com</span>
+        </div>
+        <button type="button" class="quick-fill-btn" onclick="fillDemoCustomer()">Use Demo</button>
+      </div>
+
+      <div id="errorBanner" class="error-banner"></div>
+      <div id="successBanner" class="success-banner"></div>
+
+      <div class="auth-tabs">
+        <button type="button" id="tabLogin" class="auth-tab-btn active" onclick="switchAuthTab('login')">Sign In</button>
+        <button type="button" id="tabRegister" class="auth-tab-btn" onclick="switchAuthTab('register')">Create Account</button>
+      </div>
+
+      <!-- Login Form -->
+      <form id="pageLoginForm" onsubmit="handleCustomerLogin(event)">
+        <div class="form-group">
+          <label>Email Address</label>
+          <input type="email" id="customerEmail" class="form-control" required placeholder="name@example.com" value="customer@example.com" />
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="customerPassword" class="form-control" required placeholder="••••••••" value="Customer@123456" />
+        </div>
+        <button type="submit" id="loginSubmitBtn" class="btn btn-primary" style="width: 100%; padding: 0.8rem; margin-top: 0.5rem; font-weight: 700;">
+          Sign In to Shop
+        </button>
+      </form>
+
+      <!-- Register Form -->
+      <form id="pageRegisterForm" style="display: none;" onsubmit="handleCustomerRegister(event)">
+        <div class="form-group">
+          <label>Full Name</label>
+          <input type="text" id="regFullName" class="form-control" required placeholder="Aarav Sharma" />
+        </div>
+        <div class="form-group">
+          <label>Email Address</label>
+          <input type="email" id="regEmail" class="form-control" required placeholder="aarav@example.com" />
+        </div>
+        <div class="form-group">
+          <label>Password (min 8 characters)</label>
+          <input type="password" id="regPassword" class="form-control" required minlength="8" placeholder="••••••••" />
+        </div>
+        <div class="form-group">
+          <label>Phone Number</label>
+          <input type="tel" id="regPhone" class="form-control" placeholder="+91 9876543210" />
+        </div>
+        <button type="submit" id="regSubmitBtn" class="btn btn-primary" style="width: 100%; padding: 0.8rem; margin-top: 0.5rem; font-weight: 700;">
+          Create My Account
+        </button>
+      </form>
+
+      <div style="text-align: center; margin-top: 1.5rem; font-size: 0.85rem; color: #64748b;">
+        Retail employee or administrator? <a href="/admin/login" style="color: #2563eb; font-weight: 600; text-decoration: none;">Staff Sign In</a>
+      </div>
+    </div>
+  </div>
+
+  <footer style="text-align: center; padding: 1.5rem; color: #64748b; font-size: 0.8rem;">
+    © 2026 <strong>ALGIONS AI LABS PRIVATE LIMITED</strong> &bull; Reusable Component Architecture
+  </footer>
+
+  <script>
+    function switchAuthTab(tab) {
+      const loginForm = document.getElementById('pageLoginForm');
+      const regForm = document.getElementById('pageRegisterForm');
+      const tabLogin = document.getElementById('tabLogin');
+      const tabRegister = document.getElementById('tabRegister');
+      hideBanners();
+
+      if (tab === 'login') {
+        loginForm.style.display = 'block';
+        regForm.style.display = 'none';
+        tabLogin.classList.add('active');
+        tabRegister.classList.remove('active');
+      } else {
+        loginForm.style.display = 'none';
+        regForm.style.display = 'block';
+        tabRegister.classList.add('active');
+        tabLogin.classList.remove('active');
+      }
+    }
+
+    function fillDemoCustomer() {
+      switchAuthTab('login');
+      document.getElementById('customerEmail').value = 'customer@example.com';
+      document.getElementById('customerPassword').value = 'Customer@123456';
+    }
+
+    function showError(msg) {
+      const b = document.getElementById('errorBanner');
+      b.textContent = msg;
+      b.style.display = 'block';
+      document.getElementById('successBanner').style.display = 'none';
+    }
+
+    function showSuccess(msg) {
+      const b = document.getElementById('successBanner');
+      b.textContent = msg;
+      b.style.display = 'block';
+      document.getElementById('errorBanner').style.display = 'none';
+    }
+
+    function hideBanners() {
+      document.getElementById('errorBanner').style.display = 'none';
+      document.getElementById('successBanner').style.display = 'none';
+    }
+
+    async function handleCustomerLogin(e) {
+      e.preventDefault();
+      hideBanners();
+      const btn = document.getElementById('loginSubmitBtn');
+      btn.disabled = true;
+      btn.textContent = 'Signing in...';
+
+      const email = document.getElementById('customerEmail').value.trim();
+      const password = document.getElementById('customerPassword').value;
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Authentication failed');
+
+        localStorage.setItem('token', data.data.accessToken);
+        showSuccess('Welcome back, ' + data.data.user.name + '! Redirecting to storefront...');
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 800);
+      } catch (err) {
+        showError(err.message);
+        btn.disabled = false;
+        btn.textContent = 'Sign In to Shop';
+      }
+    }
+
+    async function handleCustomerRegister(e) {
+      e.preventDefault();
+      hideBanners();
+      const btn = document.getElementById('regSubmitBtn');
+      btn.disabled = true;
+      btn.textContent = 'Creating account...';
+
+      const name = document.getElementById('regFullName').value.trim();
+      const email = document.getElementById('regEmail').value.trim();
+      const password = document.getElementById('regPassword').value;
+      const phone = document.getElementById('regPhone').value.trim();
+
+      try {
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, password, phone: phone || undefined })
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Registration failed');
+
+        localStorage.setItem('token', data.data.accessToken);
+        showSuccess('Account created successfully! Redirecting...');
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 800);
+      } catch (err) {
+        showError(err.message);
+        btn.disabled = false;
+        btn.textContent = 'Create My Account';
+      }
+    }
+
+    // Check if query parameter requests register tab
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('tab') === 'register') {
+      switchAuthTab('register');
+    }
+  </script>
+</body>
+</html>

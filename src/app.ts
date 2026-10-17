@@ -109,6 +109,23 @@ app.get('/api-docs', (_req: Request, res: Response) => {
   res.sendFile(path.join(publicDir, 'docs', 'index.html'));
 });
 
+// Explicit UI Navigation Routes
+app.get('/login', (_req: Request, res: Response) => {
+  res.sendFile(path.join(publicDir, 'login.html'));
+});
+
+app.get('/register', (_req: Request, res: Response) => {
+  res.redirect('/login?tab=register');
+});
+
+app.get('/admin/login', (_req: Request, res: Response) => {
+  res.sendFile(path.join(publicDir, 'admin', 'login.html'));
+});
+
+app.get('/admin', (_req: Request, res: Response) => {
+  res.redirect('/admin/');
+});
+
 // Health check endpoint
 app.get('/api/health', async (_req: Request, res: Response) => {
   const dbHealth = await checkDatabaseConnection();
