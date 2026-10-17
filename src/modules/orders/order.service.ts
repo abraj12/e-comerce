@@ -70,6 +70,34 @@ export class OrderService {
       throw new Error('Cannot checkout: Shopping cart is empty');
     }
 
+    // Authoritatively recalculate current prices from database to prevent stale cart prices or price tampering
+    const variantIds = cart.items.map((i) => i.variantId);
+    const liveVariants = await prisma.productVariant.findMany({
+      where: { id: { in: variantIds } },
+      include: { product: true }
+    });
+    const variantMap = new Map(liveVariants.map((v) => [v.id, v]));
+
+    let authoritativeSubtotal = 0;
+    const recalculatedItems = cart.items.map((item) => {
+      const liveVariant = variantMap.get(item.variantId);
+      if (!liveVariant || !liveVariant.product.isActive) {
+        throw new Error(`Product variant "${item.productName}" is no longer active or available`);
+      }
+      const unitPrice = liveVariant.price;
+      const itemTotal = Number((item.quantity * unitPrice).toFixed(2));
+      authoritativeSubtotal += itemTotal;
+      return {
+        ...item,
+        unitPrice,
+        itemTotal,
+        productName: liveVariant.product.name,
+        variantName: liveVariant.name,
+        sku: liveVariant.sku
+      };
+    });
+    authoritativeSubtotal = Number(authoritativeSubtotal.toFixed(2));
+
     // Validate delivery and calculate fee
     let deliveryFee = 0;
     let deliveryZoneId: string | null = null;
@@ -82,7 +110,7 @@ export class OrderService {
 
       const availability = await deliveryService.checkDeliveryAvailability(
         shippingAddress.pinCode,
-        cart.subtotal
+        authoritativeSubtotal
       );
 
       if (!availability.serviceable) {
@@ -117,11 +145,11 @@ export class OrderService {
     let validatedCoupon: any = null;
 
     if (effectiveCoupon) {
-      validatedCoupon = await promotionService.validateCoupon(effectiveCoupon, cart.subtotal);
+      validatedCoupon = await promotionService.validateCoupon(effectiveCoupon, authoritativeSubtotal);
       discountAmount = validatedCoupon.discountAmount;
     }
 
-    const discountedSubtotal = Math.max(0, cart.subtotal - discountAmount);
+    const discountedSubtotal = Math.max(0, authoritativeSubtotal - discountAmount);
     const taxRate = env.TAX_RATE_PERCENTAGE / 100;
     const taxAmount = Number((discountedSubtotal * taxRate).toFixed(2));
     const totalAmount = Number((discountedSubtotal + taxAmount + deliveryFee).toFixed(2));
@@ -134,7 +162,7 @@ export class OrderService {
     // Atomic execution: reserve stock with optimistic version checking, create order, invoice, and clear cart
     const createdOrder = await prisma.$transaction(async (tx) => {
       // 1. Atomically reserve stock for each item using version concurrency guard
-      for (const item of cart.items) {
+      for (const item of recalculatedItems) {
         await inventoryService.reserveStock(
           item.variantId,
           item.quantity,
@@ -157,7 +185,7 @@ export class OrderService {
           deliveryType,
           deliveryZoneId,
           deliveryFee,
-          subtotal: cart.subtotal,
+          subtotal: authoritativeSubtotal,
           discountAmount,
           couponCode: effectiveCoupon || null,
           taxAmount,
@@ -168,7 +196,7 @@ export class OrderService {
           guestAccessToken,
           notes: notes || null,
           items: {
-            create: cart.items.map((i) => ({
+            create: recalculatedItems.map((i) => ({
               variantId: i.variantId,
               productName: i.productName,
               variantName: i.variantName,
@@ -187,7 +215,7 @@ export class OrderService {
         data: {
           invoiceNumber,
           orderId: order.id,
-          subtotal: cart.subtotal,
+          subtotal: authoritativeSubtotal,
           taxAmount,
           deliveryFee,
           discountAmount,

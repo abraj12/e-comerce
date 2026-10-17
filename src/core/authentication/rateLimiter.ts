@@ -34,3 +34,14 @@ export const paymentRateLimiter = rateLimit({
     error: 'Too many payment requests. Please try again after 15 minutes.'
   }
 });
+
+export const passwordResetRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: isTest ? 10000 : 5, // 5 requests per 15 minutes for password recovery to prevent brute-force attacks
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: 'Too many password reset requests. Please try again after 15 minutes.'
+  }
+});

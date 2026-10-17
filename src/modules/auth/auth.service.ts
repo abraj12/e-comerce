@@ -1,7 +1,8 @@
+import crypto from 'crypto';
 import { Role } from '@prisma/client';
 import { prisma } from '../../core/database/prisma.js';
 import { hashPassword, verifyPassword } from '../../core/authentication/password.js';
-import { generateAccessToken, createSession, validateAndRotateSession, revokeSession } from '../../core/authentication/token.js';
+import { generateAccessToken, createSession, validateAndRotateSession, revokeSession, revokeAllUserSessions } from '../../core/authentication/token.js';
 import { recordAuditEvent } from '../../core/logging/audit.js';
 
 export class AuthService {
@@ -160,6 +161,149 @@ export class AuthService {
       },
       orderBy: { createdAt: 'desc' }
     });
+  }
+
+  /**
+   * Request password reset token.
+   * Employs OWASP anti-enumeration: always returns a generic success message
+   * regardless of whether the email exists.
+   */
+  async forgotPassword(email: string, ipAddress?: string, userAgent?: string) {
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail }
+    });
+
+    let debugToken: string | undefined;
+
+    if (user && user.isActive) {
+      // High-entropy 32-byte cryptographic token
+      const rawToken = crypto.randomBytes(32).toString('hex');
+      // Store SHA-256 hash in database to prevent token theft from database backups/logs
+      const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
+      // Token valid for 15 minutes
+      const resetTokenExpiry = new Date(Date.now() + 15 * 60 * 1000);
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          resetToken: hashedToken,
+          resetTokenExpiry
+        }
+      });
+
+      await recordAuditEvent({
+        userId: user.id,
+        action: 'PASSWORD_RESET_REQUESTED',
+        entityType: 'User',
+        entityId: user.id,
+        ipAddress,
+        userAgent
+      });
+
+      // Provide debugToken only in test environment for automated verification
+      if (process.env.NODE_ENV === 'test') {
+        debugToken = rawToken;
+      }
+    }
+
+    return {
+      message: 'If an account with that email exists, password reset instructions have been sent.',
+      ...(debugToken ? { debugToken } : {})
+    };
+  }
+
+  /**
+   * Reset password with single-use expiring token.
+   * Revokes all active sessions upon successful reset.
+   */
+  async resetPassword(token: string, newPassword: string, ipAddress?: string, userAgent?: string) {
+    if (!token || typeof token !== 'string') {
+      throw new Error('Invalid or expired password reset token');
+    }
+
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await prisma.user.findFirst({
+      where: {
+        resetToken: hashedToken,
+        resetTokenExpiry: { gt: new Date() },
+        isActive: true
+      }
+    });
+
+    if (!user) {
+      throw new Error('Invalid or expired password reset token');
+    }
+
+    const passwordHash = await hashPassword(newPassword);
+
+    // Atomically update password and clear reset token to prevent replay
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash,
+        resetToken: null,
+        resetTokenExpiry: null
+      }
+    });
+
+    // Invalidate all existing user sessions
+    await revokeAllUserSessions(user.id);
+
+    await recordAuditEvent({
+      userId: user.id,
+      action: 'PASSWORD_RESET_COMPLETED',
+      entityType: 'User',
+      entityId: user.id,
+      ipAddress,
+      userAgent
+    });
+
+    return {
+      message: 'Password has been reset successfully. Please log in with your new password.'
+    };
+  }
+
+  /**
+   * Authenticated password change with session revocation.
+   */
+  async changePassword(userId: string, currentPassword: string, newPassword: string, ipAddress?: string, userAgent?: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user || !user.isActive) {
+      throw new Error('User not found or inactive');
+    }
+
+    const isValid = await verifyPassword(currentPassword, user.passwordHash);
+    if (!isValid) {
+      throw new Error('Current password is incorrect');
+    }
+
+    const passwordHash = await hashPassword(newPassword);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash }
+    });
+
+    // Revoke all sessions so re-login with new password is required
+    await revokeAllUserSessions(user.id);
+
+    await recordAuditEvent({
+      userId: user.id,
+      action: 'PASSWORD_CHANGED',
+      entityType: 'User',
+      entityId: user.id,
+      ipAddress,
+      userAgent
+    });
+
+    return {
+      message: 'Password changed successfully. Please log in with your new credentials.'
+    };
   }
 }
 

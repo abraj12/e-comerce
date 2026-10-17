@@ -60,6 +60,39 @@ export class AuthController {
       res.status(500).json({ success: false, error: (error as Error).message });
     }
   }
+
+  async forgotPassword(req: Request, res: Response): Promise<void> {
+    try {
+      const result = await authService.forgotPassword(req.body.email, req.ip, req.headers['user-agent']);
+      res.json({ success: true, ...result });
+    } catch (error) {
+      res.status(400).json({ success: false, error: (error as Error).message });
+    }
+  }
+
+  async resetPassword(req: Request, res: Response): Promise<void> {
+    try {
+      const result = await authService.resetPassword(req.body.token, req.body.password, req.ip, req.headers['user-agent']);
+      res.json({ success: true, ...result });
+    } catch (error) {
+      res.status(400).json({ success: false, error: (error as Error).message });
+    }
+  }
+
+  async changePassword(req: Request, res: Response): Promise<void> {
+    try {
+      const result = await authService.changePassword(
+        req.user!.userId,
+        req.body.currentPassword,
+        req.body.newPassword,
+        req.ip,
+        req.headers['user-agent']
+      );
+      res.json({ success: true, ...result });
+    } catch (error) {
+      res.status(400).json({ success: false, error: (error as Error).message });
+    }
+  }
 }
 
 export const authController = new AuthController();

@@ -4,6 +4,16 @@ import { z } from 'zod';
 // Load environment variables from .env
 dotenv.config();
 
+const isRunningTests =
+  process.env.NODE_ENV === 'test' ||
+  process.argv.some((arg) => arg.includes('test')) ||
+  process.execArgv.some((arg) => arg.includes('test')) ||
+  Boolean(process.env.npm_lifecycle_event && process.env.npm_lifecycle_event.includes('test'));
+
+if (isRunningTests && process.env.NODE_ENV !== 'production') {
+  process.env.NODE_ENV = 'test';
+}
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().default(3000),

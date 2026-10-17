@@ -1,4 +1,4 @@
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, PaymentStatus } from '@prisma/client';
 import { prisma } from '../../core/database/prisma.js';
 
 export class ReportingService {
@@ -8,23 +8,23 @@ export class ReportingService {
       paidOrders,
       totalCustomers,
       productsCount,
-      lowStockCount,
+      inventoryItems,
       recentOrders,
       ordersByStatus
     ] = await Promise.all([
       prisma.order.count(),
+      // Revenue strictly derives from orders with verified, completed payments
       prisma.order.findMany({
         where: {
-          status: { in: [OrderStatus.PAID, OrderStatus.PROCESSING, OrderStatus.DISPATCHED, OrderStatus.DELIVERED] }
+          paymentStatus: PaymentStatus.COMPLETED
         },
         select: { totalAmount: true }
       }),
       prisma.user.count({ where: { role: 'CUSTOMER' } }),
       prisma.product.count({ where: { isActive: true } }),
-      prisma.inventoryItem.count({
-        where: {
-          stockQuantity: { lte: 5 }
-        }
+      // Available stock accounts for active reservations: available = stockQuantity - reservedQuantity
+      prisma.inventoryItem.findMany({
+        select: { stockQuantity: true, reservedQuantity: true }
       }),
       prisma.order.findMany({
         take: 5,
@@ -38,6 +38,9 @@ export class ReportingService {
     ]);
 
     const totalRevenue = paidOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+    const lowStockCount = inventoryItems.filter(
+      (item) => (item.stockQuantity - item.reservedQuantity) <= 5
+    ).length;
 
     return {
       totalRevenue: Number(totalRevenue.toFixed(2)),

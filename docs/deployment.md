@@ -1,7 +1,7 @@
 # Deployment and Setup Guide
 **ALGIONS AI LABS PRIVATE LIMITED**  
 **Project:** Secure, Reusable, Component-Based E-Commerce Platform with Razorpay  
-**Branch:** `fix/razorpay-preproduction`  
+**Branch:** `fix/audited-component-reuse`  
 
 This document outlines how backend and DevOps engineers can configure, test, and independently deploy this e-commerce platform for retail clients (groceries, sweet shops, apparel boutiques, electronics).
 

@@ -323,4 +323,56 @@ describe('Security & RBAC Enforcement Tests (OWASP Verification)', () => {
     assert.strictEqual(res.status, 400);
     assert.strictEqual(res.body.success, false);
   });
+
+  it('Invoice HTML Sanitization: Escapes malicious XSS payloads in invoice templates', async () => {
+    const xssPayload = '<script>alert("XSS")</script>';
+    const orderWithXss = await prisma.order.create({
+      data: {
+        orderNumber: `ORD-XSS-${Date.now()}`,
+        customerEmail: 'xss-target@example.com',
+        customerPhone: '+919999999999',
+        subtotal: 100,
+        discountAmount: 0,
+        taxAmount: 5,
+        totalAmount: 105,
+        deliveryFee: 0,
+        deliveryType: 'STORE_PICKUP',
+        paymentMethod: 'CASH_ON_DELIVERY',
+        status: OrderStatus.PENDING,
+        items: {
+          create: [
+            {
+              variantId: testVariantId,
+              productName: `Product ${xssPayload}`,
+              variantName: `Variant ${xssPayload}`,
+              sku: `SKU-${Date.now()}`,
+              unitPrice: 100,
+              quantity: 1,
+              totalPrice: 100
+            }
+          ]
+        }
+      }
+    });
+
+    const invoiceWithXss = await prisma.invoice.create({
+      data: {
+        invoiceNumber: `INV-XSS-${Date.now()}`,
+        orderId: orderWithXss.id,
+        subtotal: 100,
+        taxAmount: 5,
+        deliveryFee: 0,
+        discountAmount: 0,
+        totalAmount: 105
+      }
+    });
+
+    const res = await request(app)
+      .get(`/api/invoices/${orderWithXss.id}/render`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    assert.strictEqual(res.status, 200);
+    assert.ok(res.text.includes('&lt;script&gt;alert(&quot;XSS&quot;)&lt;/script&gt;'));
+    assert.strictEqual(res.text.includes('<script>alert("XSS")</script>'), false);
+  });
 });

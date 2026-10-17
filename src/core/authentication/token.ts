@@ -83,3 +83,13 @@ export async function revokeSession(refreshToken: string): Promise<void> {
     data: { revokedAt: new Date() }
   });
 }
+
+export async function revokeAllUserSessions(userId: string): Promise<void> {
+  await prisma.session.updateMany({
+    where: {
+      userId,
+      revokedAt: null
+    },
+    data: { revokedAt: new Date() }
+  });
+}
