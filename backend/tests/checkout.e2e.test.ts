@@ -30,7 +30,19 @@ describe('End-to-End Customer Checkout Journey', () => {
       include: { variants: { include: { inventory: true } } }
     });
 
-    testVariantId = product!.variants[0].id;
+    const variantWithStock = product!.variants.find(
+      (v) => (v.inventory?.stockQuantity || 0) - (v.inventory?.reservedQuantity || 0) >= 2
+    );
+
+    if (variantWithStock) {
+      testVariantId = variantWithStock.id;
+    } else {
+      testVariantId = product!.variants[0].id;
+      await prisma.inventoryItem.updateMany({
+        where: { variantId: testVariantId },
+        data: { stockQuantity: 50, reservedQuantity: 0 }
+      });
+    }
   });
 
   it('Step 1: Catalogue Search - Customer browses products and retrieves available stock', async () => {

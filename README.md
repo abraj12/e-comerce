@@ -4,168 +4,131 @@
 **Node.js Version:** v20+ / v22+ LTS  
 **Branch:** `fix/razorpay-preproduction`  
 
-A complete, production-grade e-commerce application and backend for local retail businesses (groceries, sweet shops, apparel boutiques, electronics). Built according to the core principle: **"Reuse working, well-maintained open-source code instead of writing every feature from scratch."**
+A complete, production-grade e-commerce application and platform for retail businesses. Built with a modern **Next.js 14** frontend and an enterprise **Express + TypeScript + Prisma** backend.
 
 ---
 
-## 🚀 Key Capabilities
+## 📁 Repository Structure
 
-- **Core Foundation**: Type-safe relational schema with [Prisma](https://github.com/prisma/prisma) (SQLite/PostgreSQL), strict [Zod](https://github.com/colinhacks/zod) runtime boundary validation, structured JSON logging, and database audit logs.
-- **Access Control & Security**: Server-side [Casbin](https://github.com/apache/casbin-node-casbin) RBAC enforcer with deny-by-default access, bcrypt (12 salt rounds), rotating session tokens, sliding-window rate limiters, IDOR protection, and secure invoice authorization with guest access tokens.
-- **Product Catalogue**: Multi-variant products (size, color, weight), master SKU, slug generator, secure image upload with raster MIME validation (SVG active content eliminated), and multi-filter search.
-- **Inventory & Oversell Prevention**: Atomic database transactions (`$transaction`) with optimistic concurrency locking (`version` guards) and backoff retries, preventing overselling under high concurrency. Real-time low-stock alerts.
-- **Shopping Cart & Checkout**: Customer & guest session carts with strict item ownership verification, real-time stock checks, dynamic taxes, and discount coupons with maximum caps and threshold rules.
-- **Local Delivery & PIN Zones**: PIN code serviceability validation, delivery fee rules, free delivery thresholds, and order assignment to delivery personnel.
-- **Orders & Payments with Razorpay**: 
-  - Official Razorpay Node.js SDK integration.
-  - Server-side order creation using trusted database order amounts (calculated in paise: 100 paise = 1 INR).
-  - Timing-safe HMAC-SHA256 checkout signature verification.
-  - Authoritative server-side payment capture verification (`razorpay.payments.fetch`).
-  - Signed webhook verification using exact raw body and `X-Razorpay-Signature`.
-  - Strictly idempotent webhook processing (`payment.captured`, `order.paid`, `payment.failed`).
-  - Public mock payments removed from production routes and restricted to isolated test suites.
-- **Order State Machine**: Explicit status transition policies (`PENDING` -> `PAID`/`PROCESSING` -> `DISPATCHED` -> `DELIVERED`), preventing duplicate stock deduction or illegal state transitions.
-- **Invoices & Receipts**: Automated tax invoice generation with breakdown of items, discounts, GST/tax, delivery fees, printable HTML receipts with full XSS escaping, and guest access tokens.
-- **Reporting & Operational Dashboards**: Sales revenue, order status distribution, best-selling products, low-stock warnings, and security audit log queries.
-- **Interactive UI & Documentation**:
-  - 🛒 **Customer Storefront**: Responsive shopping catalog, product quick-view, cart drawer, checkout modal, Razorpay Checkout launcher, and safe order tracking.
-  - 🏢 **Operations Admin Portal**: Shop management dashboard for products, inventory restock, order fulfillment, delivery zones, and audit logs.
-  - 📖 **Interactive OpenAPI 3.0 UI**: Swagger UI explorer hosted at `/api-docs`.
-
----
-
-## 🏗️ Architecture
-
-```mermaid
-graph TD
-    subgraph Client Application Layer
-        SF[Responsive Customer Storefront<br/>/ - public/index.html & js/storefront.js]
-        ADM[Operations Admin Portal<br/>/admin/ - public/admin/index.html & admin.js]
-        SWAG[Interactive OpenAPI Explorer<br/>/api-docs & docs/openapi.json]
-    end
-
-    subgraph Commerce Modules Layer
-        AUTH_M[modules/auth<br/>Login, Register, Refresh, Sessions]
-        PROD_M[modules/products<br/>Variants, SKU, Search, Filter]
-        INV_M[modules/inventory<br/>Atomic Reservation, Version Guard]
-        CART_M[modules/cart<br/>Customer & Guest Cart, Ownership Check]
-        PROMO_M[modules/promotions<br/>Coupons, Discounts, Caps]
-        DELIV_M[modules/delivery<br/>PIN Code Matching, Fees, Dispatch]
-        ORDER_M[modules/orders<br/>Atomic Checkout, Order State Machine]
-        PAY_M[modules/payments<br/>Razorpay Orders, Verify, Webhooks]
-        INVCE_M[modules/invoices<br/>HTML & Structured Tax Invoices, XSS-Safe]
-        REPORT_M[modules/reporting<br/>Sales, Low Stock, Audit Logs]
-    end
-
-    subgraph Core Foundational Services
-        CONFIG[core/config<br/>Zod-Validated Env Schema & Startup Check]
-        DB[core/database<br/>Prisma ORM & Parameterized SQL]
-        AUTHZ[core/authorization<br/>Casbin Policy RBAC Engine]
-        VALID[core/validation<br/>Strict Zod Request Middleware]
-        LOG[core/logging<br/>Structured Logger & DB Audit Trail]
-        BUS[core/events<br/>Decoupled Async Event Bus]
-        STORE[core/storage<br/>Multer with Raster Whitelist & nosniff]
-    end
-
-    SF --> ORDER_M
-    SF --> CART_M
-    SF --> PROD_M
-    SF --> PAY_M
-    ADM --> PROD_M
-    ADM --> INV_M
-    ADM --> ORDER_M
-    ADM --> DELIV_M
-    ADM --> REPORT_M
-
-    ORDER_M --> INV_M
-    ORDER_M --> PROMO_M
-    ORDER_M --> DELIV_M
-    ORDER_M --> PAY_M
-    ORDER_M --> INVCE_M
-    ORDER_M --> BUS
-
-    ORDER_M --> DB
-    AUTH_M --> AUTHZ
-    AUTHZ --> DB
-    VALID --> PROD_M
-    VALID --> ORDER_M
+```
+e-comerce/
+├── backend/                  # Express REST API, Prisma ORM & Business Logic
+│   ├── src/                  # Core modules, authentication, RBAC, services
+│   ├── prisma/               # Prisma schema & idempotent demo seed script
+│   ├── tests/                # 74 automated unit, security, concurrency & e2e tests
+│   ├── docs/                 # Architecture, security review, openapi spec
+│   ├── dev.db                # SQLite local development database
+│   ├── package.json          # Backend dependencies & test scripts
+│   └── tsconfig.json         # Backend TypeScript configuration
+│
+├── frontend/                 # Modern Next.js 14 App Router Web Application
+│   ├── app/
+│   │   ├── page.tsx          # Storefront (catalog, search, categories, quick-view, cart drawer)
+│   │   ├── login/            # Customer authentication & 1-click test login
+│   │   ├── checkout/         # Multi-step checkout with delivery, COD & Razorpay modal
+│   │   ├── orders/track/     # Real-time public fulfillment tracking stepper
+│   │   ├── admin/            # Operations dashboard (sales, inventory, low stock)
+│   │   ├── admin/login/      # Role-based staff/admin authentication portal
+│   │   ├── lib/api.ts        # Typed API client
+│   │   └── globals.css       # Clean, responsive styles
+│   ├── next.config.mjs       # Reverse-proxy rewrite rules to Backend API
+│   ├── package.json          # Next.js 14 & React 18 dependencies
+│   └── tsconfig.json         # Frontend TypeScript configuration
+│
+├── scripts/
+│   └── test-e2e-client.mjs   # Full-stack integration smoke test
+├── package.json              # Monorepo scripts (dev, build, test, seed)
+└── .gitignore                # Workspace gitignore (.next, node_modules, dev.db)
 ```
 
 ---
 
-## 🧪 Automated Test Suite (55 Tests, 100% Passing)
-
-Testing covers all critical components:
-- **Unit Tests**: Pricing, discount calculations, tax rules, and coupon limits (`tests/unit/`).
-- **Security & RBAC Tests**: Deny-by-default (401), privilege escalation defense (403), Casbin policy wildcard check, input validation (400), IDOR defense, private order protection, anonymous invoice protection, cross-customer cart ownership, payment authorization, and order state machine (`tests/security/`).
-- **High-Concurrency Tests**: 10 simultaneous requests for 2 stock units yield exactly 2 successes and 8 failures with atomic version checks; concurrent checkouts for limited inventory (`tests/concurrency/`).
-- **Razorpay Integration & Webhook Tests**: Server-side order creation in paise, checkout signature verification, payment ID matching, amount validation, uncaptured status rejection, API failure handling, HMAC-SHA256 webhook verification, and idempotent delivery (`tests/integration/`).
-- **Local Delivery Tests**: PIN code matching, delivery fee rules, and free delivery thresholds (`tests/integration/`).
-- **End-to-End Checkout**: Full customer journey from registration to product selection, cart, coupon application, checkout, invoice generation, and tracking (`tests/checkout.e2e.test.ts`).
-- **Post-Deployment Smoke Tests**: Health checks, database connectivity, and security headers (`tests/smoke.test.ts`).
-
-```bash
-# Run all automated tests:
-npm test
-
-# Run specific suites:
-npm run test:unit
-npm run test:security
-npm run test:concurrency
-npm run test:integration
-npm run test:e2e
-```
-
----
-
-## ⚡ Quick Start
+## 🚀 Quick Start Guide
 
 ### 1. Install Dependencies
 ```bash
-npm ci
+# In backend
+cd backend && npm install
+
+# In frontend
+cd ../frontend && npm install
+
+# In root
+cd .. && npm install
 ```
 
-### 2. Configure Environment
+### 2. Seed the Database
+Populate the database with rich retail products, variants, delivery zones, coupons, and staff accounts:
 ```bash
-cp .env.example .env
-```
-Set your Razorpay Test Mode credentials:
-```env
-RAZORPAY_KEY_ID=rzp_test_...
-RAZORPAY_KEY_SECRET=...
-RAZORPAY_WEBHOOK_SECRET=...
+npm run seed
 ```
 
-### 3. Initialize Database & Seed Store Data
+### 3. Run the Platform in Development
+Start both the Express backend (Port 3000) and Next.js frontend (Port 3001) simultaneously:
 ```bash
-npm run prisma:generate
-npm run prisma:push
-npm run prisma:seed
+npm run dev
 ```
 
-### 4. Build and Start Server
-```bash
-npm run build
-npm start
-```
-
-- **Storefront**: [http://localhost:3000/](http://localhost:3000/)
-- **Admin Dashboard**: [http://localhost:3000/admin/](http://localhost:3000/admin/)
-- **OpenAPI Interactive Documentation**: [http://localhost:3000/api-docs](http://localhost:3000/api-docs)
-- **Health Check API**: [http://localhost:3000/api/health](http://localhost:3000/api/health)
-
-### Default Test Accounts
-- **Admin**: `admin@algions.local` / `Admin@123456`
-- **Manager**: `manager@algions.local` / `Staff@123456`
-- **Staff**: `staff@algions.local` / `Staff@123456`
-- **Delivery**: `rider@algions.local` / `Rider@123456`
-- **Customer**: `customer@example.com` / `Customer@123456`
+- 🛒 **Storefront**: [http://localhost:3001](http://localhost:3001)
+- 🔐 **Customer Login**: [http://localhost:3001/login](http://localhost:3001/login)
+- 💳 **Checkout**: [http://localhost:3001/checkout](http://localhost:3001/checkout)
+- 🚚 **Order Tracker**: [http://localhost:3001/orders/track](http://localhost:3001/orders/track)
+- 🏢 **Admin Dashboard**: [http://localhost:3001/admin](http://localhost:3001/admin)
+- 👔 **Staff/Admin Login**: [http://localhost:3001/admin/login](http://localhost:3001/admin/login)
+- 📖 **OpenAPI / Swagger UI**: [http://localhost:3000/api-docs](http://localhost:3000/api-docs)
 
 ---
 
-## 📚 Documentation
-- [Architecture Decision Record & Specification](docs/components-catalog.md)
-- [Independent Client Deployment Guide](docs/deployment.md)
-- [Open-Source Dependency & License Inventory](docs/licenses-inventory.md)
-- [Security Review & Residual Risk Assessment](docs/security-review.md)
-- [OpenAPI 3.0 Contract Specification](docs/openapi.json)
+## 🔑 Demo Credentials (with 1-Click Login)
+
+The frontend includes pre-filled 1-click test buttons for quick evaluation:
+
+| Role | Email | Password | Access Level |
+|---|---|---|---|
+| **Customer** | `customer@example.com` | `Customer@123456` | Storefront, cart, checkout, profile |
+| **System Admin** | `admin@algions.local` | `Admin@123456` | Wildcard access (`*` on `*`), security audits |
+| **Store Manager** | `manager@algions.local` | `Staff@123456` | Products, inventory, orders, analytics |
+| **Inventory Staff** | `staff@algions.local` | `Staff@123456` | Restocking, inventory counts, pack orders |
+| **Delivery Rider** | `rider@algions.local` | `Rider@123456` | Assigned deliveries, dispatch updates |
+
+### Active Demo Vouchers & Delivery Zones
+- **Coupon `SAVE10`**: 10% discount capped at ₹100.
+- **Coupon `FLAT50`**: Flat ₹50 discount on orders above ₹299.
+- **Serviceable Delivery PINs**: `560001`, `560002`, `560025`, `560009` (Central City Sector, free delivery above ₹350).
+
+---
+
+## 🧪 Automated Testing
+
+The backend includes a comprehensive suite of **74 passing automated tests**:
+
+```bash
+# Run all unit, security, concurrency, integration tests (68 tests)
+npm test
+
+# Run End-to-End customer checkout journey (6 tests)
+npm run test:e2e
+
+# Run security & OWASP RBAC verification
+npm run test:security
+```
+
+### Test Coverage Highlights:
+- **Security & OWASP**: Deny-by-default, IDOR defense on orders & invoices, guest order tokens, XSS-escaping in HTML invoices, SVG raster rejection, Helmet security headers.
+- **Concurrency & Oversell Prevention**: Concurrent checkout race-condition testing using optimistic locking (`version` guard) ensuring zero inventory oversell.
+- **Pricing & Promotions**: Exact subtotal calculation, percentage & fixed caps, tax calculations.
+- **Payment Lifecycle**: Official Razorpay SDK HMAC signature validation, timing-safe checks, idempotent webhooks.
+
+---
+
+## 🛠️ Monorepo Commands
+
+| Command | Action |
+|---|---|
+| `npm run dev` | Runs backend (port 3000) and frontend (port 3001) concurrently |
+| `npm run dev:backend` | Runs only the Express backend with hot reloading |
+| `npm run dev:frontend` | Runs only Next.js frontend with hot reloading |
+| `npm run build` | Compiles both backend TypeScript and Next.js frontend |
+| `npm run seed` | Seeds SQLite database with demo accounts, catalog, zones, and coupons |
+| `npm test` | Runs the backend automated test suite |
+| `npm run test:e2e` | Runs end-to-end customer checkout tests |

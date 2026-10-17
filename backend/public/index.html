@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ALGIONS Retail Mart | Component-Based Local Commerce</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+
+  <!-- Navbar -->
+  <header class="header">
+    <div class="nav-container">
+      <a href="/" class="brand">
+        🛒 ALGIONS
+        <span class="brand-badge">Local Retail</span>
+      </a>
+
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="searchInput" placeholder="Search groceries, clothing, sweets, electronics..." />
+      </div>
+
+      <div class="nav-actions">
+        <button class="btn btn-outline btn-sm" onclick="openModal('trackOrderModal')">📍 Track Order</button>
+        <div id="authNavContainer" style="display: flex; gap: 0.5rem; align-items: center;">
+          <!-- Dynamically populated -->
+        </div>
+
+        <button class="btn-icon" onclick="toggleCartDrawer()" title="View Cart">
+          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
+          </svg>
+          <span class="badge" id="cartCountBadge">0</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="container">
+    <div class="hero">
+      <div class="hero-text">
+        <h1>Fresh Local Goods, Delivered to Your Door</h1>
+        <p>Your neighborhood retail destination for groceries, sweets, apparel, and electronics. Fast local delivery across our service zones.</p>
+      </div>
+      <div style="background: rgba(255,255,255,0.15); padding: 1.5rem; border-radius: 12px; backdrop-filter: blur(5px); text-align: center;">
+        <div style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 700;">Local Promo</div>
+        <div style="font-size: 1.5rem; font-weight: 800; margin: 0.3rem 0;">USE CODE: <code>SAVE10</code></div>
+        <div style="font-size: 0.85rem; opacity: 0.9;">10% off on orders above ₹200</div>
+      </div>
+    </div>
+
+    <!-- Category Filter Bar -->
+    <div class="category-nav" id="categoryNav">
+      <!-- Dynamically populated -->
+    </div>
+
+    <!-- Product Grid -->
+    <div class="product-grid" id="productGrid">
+      <!-- Dynamically loaded products -->
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <p>© 2026 <strong>ALGIONS AI LABS PRIVATE LIMITED</strong>. Reusable Component-Based Commerce Architecture.</p>
+    <p style="margin-top: 0.5rem; font-size: 0.8rem;">
+      <a href="/api-docs" style="color: #2563eb; text-decoration: none;">Interactive OpenAPI Specs</a> &bull;
+      <a href="/admin/" style="color: #2563eb; text-decoration: none;">Shop Admin Portal</a>
+    </p>
+  </footer>
+
+  <!-- Drawer Backdrop -->
+  <div class="drawer-backdrop" id="drawerBackdrop" onclick="toggleCartDrawer(false); closeModal('quickViewModal'); closeModal('checkoutModal'); closeModal('authModal'); closeModal('trackOrderModal'); closeModal('orderSuccessModal');"></div>
+
+  <!-- Shopping Cart Slide-over Drawer -->
+  <aside class="cart-drawer" id="cartDrawer">
+    <div class="drawer-header">
+      <div class="drawer-title">Shopping Cart</div>
+      <button class="btn-icon" onclick="toggleCartDrawer(false)">✕</button>
+    </div>
+
+    <div class="drawer-body" id="cartDrawerItems">
+      <!-- Items dynamically populated -->
+    </div>
+
+    <div class="drawer-footer">
+      <div style="margin-bottom: 1rem; display: flex; gap: 0.5rem;">
+        <input type="text" id="couponInput" class="form-control" placeholder="Promo code (e.g. SAVE10)" />
+        <button class="btn btn-outline btn-sm" onclick="applyCoupon()">Apply</button>
+      </div>
+
+      <div style="font-size: 0.9rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between;">
+        <span>Subtotal:</span>
+        <strong id="cartDrawerSubtotal">₹0.00</strong>
+      </div>
+      <div style="font-size: 0.9rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between; color: #16a34a;">
+        <span>Discount:</span>
+        <strong id="cartDrawerDiscount">-₹0.00</strong>
+      </div>
+      <div style="font-size: 0.9rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between; color: #64748b;">
+        <span>Estimated GST (5%):</span>
+        <span id="cartDrawerTax">₹0.00</span>
+      </div>
+      <div style="font-size: 1.15rem; font-weight: 800; margin: 0.8rem 0; display: flex; justify-content: space-between; border-top: 1px solid #cbd5e1; padding-top: 0.8rem;">
+        <span>Total:</span>
+        <span id="cartDrawerTotal" style="color: #2563eb;">₹0.00</span>
+      </div>
+
+      <button class="btn btn-primary" style="width: 100%; padding: 0.8rem;" onclick="proceedToCheckout()">
+        Proceed to Checkout →
+      </button>
+    </div>
+  </aside>
+
+  <!-- Product Quick View Modal -->
+  <div class="modal-dialog" id="quickViewModal">
+    <div style="padding: 1.5rem; position: relative;">
+      <button class="btn-icon" style="position: absolute; right: 1rem; top: 1rem;" onclick="closeModal('quickViewModal')">✕</button>
+      <h2 id="modalProductTitle" style="margin-bottom: 0.5rem;">Product</h2>
+      <div id="modalProductPrice" style="font-size: 1.4rem; font-weight: 800; color: #2563eb; margin-bottom: 1rem;">₹0.00</div>
+      <p id="modalProductDesc" style="color: #475569; margin-bottom: 1.5rem;"></p>
+
+      <div style="margin-bottom: 1.5rem;">
+        <label style="font-weight: 700; display: block; margin-bottom: 0.5rem;">Select Variant / Option:</label>
+        <div id="modalVariantsContainer"></div>
+      </div>
+
+      <div class="form-group" style="max-width: 120px;">
+        <label>Quantity:</label>
+        <input type="number" id="modalProductQty" class="form-control" value="1" min="1" max="50" />
+      </div>
+
+      <button class="btn btn-primary" style="width: 100%; margin-top: 1rem;" onclick="addQuickViewItemToCart()">
+        Add to Shopping Cart
+      </button>
+    </div>
+  </div>
+
+  <!-- Checkout Modal -->
+  <div class="modal-dialog" id="checkoutModal">
+    <div style="padding: 1.5rem; position: relative;">
+      <button class="btn-icon" style="position: absolute; right: 1rem; top: 1rem;" onclick="closeModal('checkoutModal')">✕</button>
+      <h2 style="margin-bottom: 1rem;">Complete Your Order</h2>
+
+      <form onsubmit="submitOrder(event)">
+        <!-- Delivery Mode -->
+        <div style="margin-bottom: 1.25rem;">
+          <label style="font-weight: 700; display: block; margin-bottom: 0.5rem;">Delivery Method:</label>
+          <div style="display: flex; gap: 1rem;">
+            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.6rem 1rem; border: 1px solid #cbd5e1; border-radius: 8px; flex: 1;">
+              <input type="radio" name="deliveryType" id="deliveryTypeLocal" value="LOCAL_DELIVERY" checked onchange="document.getElementById('shippingAddressFields').style.display='block'; checkPinCodeAvailability();" />
+              <span>🛵 Local Delivery</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.6rem 1rem; border: 1px solid #cbd5e1; border-radius: 8px; flex: 1;">
+              <input type="radio" name="deliveryType" id="deliveryTypePickup" value="STORE_PICKUP" onchange="document.getElementById('shippingAddressFields').style.display='none'; updateCheckoutSummary(0);" />
+              <span>🏬 Store Pickup (Free)</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Customer Name:</label>
+            <input type="text" id="checkoutName" class="form-control" required placeholder="Full Name" />
+          </div>
+          <div class="form-group">
+            <label>Phone Number:</label>
+            <input type="tel" id="checkoutPhone" class="form-control" required placeholder="+91 98765 43210" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Email Address:</label>
+          <input type="email" id="checkoutEmail" class="form-control" required placeholder="name@example.com" />
+        </div>
+
+        <!-- Address Fields -->
+        <div id="shippingAddressFields">
+          <div class="form-group">
+            <label>Street Address / Flat / Building:</label>
+            <input type="text" id="checkoutAddress" class="form-control" placeholder="123 Retail Lane, Main Bazaar" />
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label>Delivery PIN Code:</label>
+              <input type="text" id="checkoutPin" class="form-control" placeholder="e.g. 560001" onblur="checkPinCodeAvailability()" />
+              <div id="pinCodeNotice" style="font-size: 0.8rem; margin-top: 0.3rem;"></div>
+            </div>
+            <div class="form-group">
+              <label>City & State:</label>
+              <input type="text" id="checkoutCity" class="form-control" placeholder="City" value="Bengaluru" />
+              <input type="hidden" id="checkoutState" value="Karnataka" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Payment Method -->
+        <div style="margin: 1.25rem 0;">
+          <label style="font-weight: 700; display: block; margin-bottom: 0.5rem;">Payment Method:</label>
+          <div style="display: flex; gap: 1rem;">
+            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.6rem 1rem; border: 1px solid #cbd5e1; border-radius: 8px; flex: 1;">
+              <input type="radio" name="paymentMethod" value="CASH_ON_DELIVERY" checked />
+              <span>💵 Cash on Delivery</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.6rem 1rem; border: 1px solid #cbd5e1; border-radius: 8px; flex: 1;">
+              <input type="radio" name="paymentMethod" value="ONLINE_RAZORPAY" />
+              <span>💳 Pay Online (Razorpay: UPI / Cards)</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Order Notes (Optional):</label>
+          <textarea id="checkoutNotes" class="form-control" rows="2" placeholder="Leave at door, call on arrival, etc."></textarea>
+        </div>
+
+        <!-- Summary -->
+        <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 1rem; margin: 1rem 0; font-size: 0.9rem;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+            <span>Subtotal:</span>
+            <span id="checkoutSubtotal">₹0.00</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem; color: #16a34a;">
+            <span>Discount:</span>
+            <span id="checkoutDiscount">-₹0.00</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+            <span>Delivery Fee:</span>
+            <span id="checkoutDeliveryFee">FREE</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem; color: #64748b;">
+            <span>Tax (5%):</span>
+            <span id="checkoutTax">₹0.00</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-weight: 800; font-size: 1.1rem; border-top: 1px solid #e2e8f0; padding-top: 0.5rem; margin-top: 0.5rem; color: #2563eb;">
+            <span>Total Payable:</span>
+            <span id="checkoutGrandTotal">₹0.00</span>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.8rem;">
+          Place Order Now
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Order Success Modal -->
+  <div class="modal-dialog" id="orderSuccessModal">
+    <div style="padding: 2rem; text-align: center;">
+      <div style="width: 60px; height: 60px; background: #dcfce7; color: #16a34a; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; margin: 0 auto 1rem;">
+        ✓
+      </div>
+      <h2>Order Placed Successfully!</h2>
+      <p style="color: #475569; margin: 0.5rem 0 1.5rem;">
+        Your order number is <strong id="confirmedOrderNumber" style="color: #0f172a;"></strong>
+      </p>
+
+      <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem; text-align: left; font-size: 0.95rem;">
+        <div style="margin-bottom: 0.4rem;">Total: <strong id="confirmedTotal"></strong></div>
+        <div>Payment Mode: <strong id="confirmedPaymentMethod"></strong></div>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap;">
+        <a id="viewInvoiceLink" target="_blank" class="btn btn-outline">
+          📄 View / Print Tax Invoice
+        </a>
+        <button id="razorpayPayNowBtn" class="btn btn-primary" style="display: none;">
+          💳 Complete Razorpay Payment
+        </button>
+        <button id="mockPayNowBtn" class="btn btn-primary" style="display: none;">
+          ⚡ Simulate Test Payment
+        </button>
+        <button class="btn btn-outline" onclick="closeModal('orderSuccessModal');">
+          Continue Shopping
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Auth Modal (Login / Register) -->
+  <div class="modal-dialog" id="authModal">
+    <div style="padding: 1.5rem; position: relative;">
+      <button class="btn-icon" style="position: absolute; right: 1rem; top: 1rem;" onclick="closeModal('authModal')">✕</button>
+      <div style="display: flex; border-bottom: 1px solid #cbd5e1; margin-bottom: 1.25rem;">
+        <button id="tabLoginBtn" class="btn btn-sm" style="flex: 1; border-bottom: 2px solid #2563eb; border-radius: 0; font-weight: 700;" onclick="showAuthTab('login')">Login</button>
+        <button id="tabRegisterBtn" class="btn btn-sm" style="flex: 1; color: #64748b; border-radius: 0;" onclick="showAuthTab('register')">Create Account</button>
+      </div>
+
+      <!-- Login Form -->
+      <form id="loginForm" onsubmit="loginUser(event)">
+        <div class="form-group">
+          <label>Email Address:</label>
+          <input type="email" id="loginEmail" class="form-control" required placeholder="user@example.com" />
+        </div>
+        <div class="form-group">
+          <label>Password:</label>
+          <input type="password" id="loginPassword" class="form-control" required placeholder="••••••••" />
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
+          Sign In
+        </button>
+      </form>
+
+      <!-- Register Form -->
+      <form id="registerForm" style="display: none;" onsubmit="registerUser(event)">
+        <div class="form-group">
+          <label>Full Name:</label>
+          <input type="text" id="regName" class="form-control" required placeholder="John Doe" />
+        </div>
+        <div class="form-group">
+          <label>Email Address:</label>
+          <input type="email" id="regEmail" class="form-control" required placeholder="user@example.com" />
+        </div>
+        <div class="form-group">
+          <label>Password (min 8 chars):</label>
+          <input type="password" id="regPassword" class="form-control" required minlength="8" placeholder="••••••••" />
+        </div>
+        <div class="form-group">
+          <label>Phone Number:</label>
+          <input type="tel" id="regPhone" class="form-control" placeholder="+91 9876543210" />
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
+          Register Account
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Track Order Modal -->
+  <div class="modal-dialog" id="trackOrderModal">
+    <div style="padding: 1.5rem; position: relative;">
+      <button class="btn-icon" style="position: absolute; right: 1rem; top: 1rem;" onclick="closeModal('trackOrderModal')">✕</button>
+      <h2>Track Your Order</h2>
+      <p style="font-size: 0.9rem; color: #64748b; margin-bottom: 1.25rem;">Enter your Order ID (e.g. ORD-20261017-XXXX)</p>
+
+      <div style="display: flex; gap: 0.5rem;">
+        <input type="text" id="trackOrderInput" class="form-control" placeholder="ORD-..." />
+        <button class="btn btn-primary" onclick="trackOrder()">Track</button>
+      </div>
+
+      <div id="trackOrderResult"></div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Razorpay Checkout SDK -->
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <script src="/js/storefront.js"></script>
+  <script>
+    function showAuthTab(tab) {
+      if (tab === 'login') {
+        document.getElementById('loginForm').style.display = 'block';
+        document.getElementById('registerForm').style.display = 'none';
+        document.getElementById('tabLoginBtn').style.borderBottom = '2px solid #2563eb';
+        document.getElementById('tabLoginBtn').style.fontWeight = '700';
+        document.getElementById('tabRegisterBtn').style.borderBottom = 'none';
+        document.getElementById('tabRegisterBtn').style.fontWeight = '400';
+      } else {
+        document.getElementById('loginForm').style.display = 'none';
+        document.getElementById('registerForm').style.display = 'block';
+        document.getElementById('tabRegisterBtn').style.borderBottom = '2px solid #2563eb';
+        document.getElementById('tabRegisterBtn').style.fontWeight = '700';
+        document.getElementById('tabLoginBtn').style.borderBottom = 'none';
+        document.getElementById('tabLoginBtn').style.fontWeight = '400';
+      }
+    }
+  </script>
+</body>
+</html>

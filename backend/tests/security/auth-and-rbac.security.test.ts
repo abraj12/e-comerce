@@ -36,11 +36,15 @@ describe('Security & RBAC Enforcement Tests (OWASP Verification)', () => {
       .send({ name: 'Customer B', email: uniqueEmail, password: 'Password@123' });
     customerBToken = custBRes.body.data.accessToken;
 
-    // Get a product variant
+    // Get a product variant and ensure ample stock for test orders
     const variant = await prisma.productVariant.findFirst({
       include: { product: true }
     });
     testVariantId = variant!.id;
+    await prisma.inventoryItem.updateMany({
+      where: { variantId: testVariantId },
+      data: { stockQuantity: 100, reservedQuantity: 0 }
+    });
 
     // Setup cart and item for Customer A
     const cartRes = await request(app)

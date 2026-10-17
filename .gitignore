@@ -1,8 +1,39 @@
+# Dependencies
 node_modules/
+*/node_modules/
+
+# Next.js build output
+.next/
+frontend/.next/
+frontend/out/
+
+# TypeScript build output
 dist/
+backend/dist/
+
+# Environment files
 .env
-dev.db
-dev.db-journal
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+frontend/.env.local
+frontend/.env.*.local
+
+# SQLite Database
+*.db
+*.db-journal
+backend/dev.db
+backend/dev.db-journal
+backend/prisma/dev.db
+backend/prisma/dev.db-journal
+
+# Uploads
+backend/public/uploads/*
+!backend/public/uploads/.gitkeep
+
+# System & Logs
 *.log
 npm-debug.log*
 .DS_Store
