@@ -115,6 +115,10 @@ export class CartService {
   }
 
   async addItem(variantId: string, quantity: number, customerId?: string, sessionId?: string) {
+    if (quantity <= 0) {
+      throw new Error('Item quantity must be at least 1');
+    }
+
     const cart = await this.getOrCreateCart(customerId, sessionId);
 
     // Validate variant and available stock
@@ -174,14 +178,39 @@ export class CartService {
     return this.getCart(customerId, sessionId);
   }
 
+  /**
+   * Updates cart item quantity with strict cart ownership enforcement.
+   * Prevents manipulation of another user's cart item ID.
+   */
   async updateItemQuantity(itemId: string, quantity: number, customerId?: string, sessionId?: string) {
-    const item = await prisma.cartItem.findUnique({
-      where: { id: itemId },
-      include: { variant: { include: { inventory: true } } }
+    if (quantity <= 0) {
+      throw new Error('Quantity must be greater than zero');
+    }
+
+    const userCart = await this.getOrCreateCart(customerId, sessionId);
+
+    // Enforce ownership: query requires both itemId AND user's cartId
+    const item = await prisma.cartItem.findFirst({
+      where: {
+        id: itemId,
+        cartId: userCart.id
+      },
+      include: {
+        variant: {
+          include: {
+            inventory: true,
+            product: true
+          }
+        }
+      }
     });
 
     if (!item) {
-      throw new Error('Cart item not found');
+      throw new Error('Cart item not found or does not belong to your cart');
+    }
+
+    if (!item.variant.product.isActive) {
+      throw new Error('Product is no longer available');
     }
 
     const availableStock = Math.max(
@@ -194,17 +223,29 @@ export class CartService {
     }
 
     await prisma.cartItem.update({
-      where: { id: itemId },
+      where: { id: item.id },
       data: { quantity }
     });
 
     return this.getCart(customerId, sessionId);
   }
 
+  /**
+   * Removes cart item with strict cart ownership enforcement.
+   */
   async removeItem(itemId: string, customerId?: string, sessionId?: string) {
-    await prisma.cartItem.deleteMany({
-      where: { id: itemId }
+    const userCart = await this.getOrCreateCart(customerId, sessionId);
+
+    const result = await prisma.cartItem.deleteMany({
+      where: {
+        id: itemId,
+        cartId: userCart.id
+      }
     });
+
+    if (result.count === 0) {
+      throw new Error('Cart item not found or does not belong to your cart');
+    }
 
     return this.getCart(customerId, sessionId);
   }

@@ -1,0 +1,54 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main, fix/razorpay-preproduction ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate-and-test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [20.x, 22.x]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install Clean Dependencies
+        run: npm ci
+
+      - name: Validate Prisma Schema
+        run: npx prisma validate
+
+      - name: Generate Prisma Client & Sync Database
+        run: |
+          npm run prisma:generate
+          npm run prisma:push
+        env:
+          DATABASE_URL: "file:./dev.db"
+
+      - name: TypeScript Build
+        run: npm run build
+
+      - name: Execute Full Test Suite
+        run: npm test
+        env:
+          NODE_ENV: test
+          DATABASE_URL: "file:./dev.db"
+          JWT_SECRET: "test-jwt-secret-key-32-chars-algions!"
+          REFRESH_SECRET: "test-refresh-secret-key-32-chars!"
+          COOKIE_SECRET: "test-cookie-secret-key-32-chars!!"
+          RAZORPAY_KEY_ID: "rzp_test_mockKeyId"
+          RAZORPAY_KEY_SECRET: "mockKeySecret1234567890"
+          RAZORPAY_WEBHOOK_SECRET: "mockWebhookSecret1234567890"
+          ENABLE_MOCK_PAYMENTS: "true"

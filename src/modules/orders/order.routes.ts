@@ -15,11 +15,14 @@ orderRouter.post(
   orderController.create
 );
 
-// Order tracking / details (requires auth)
-orderRouter.get('/:id', optionalAuthenticate, orderController.getById);
-
 // Order history (requires auth)
 orderRouter.get('/', authenticate, orderController.list);
+
+// Safe Public Tracking endpoint (discloses non-sensitive status only)
+orderRouter.get('/:orderNumber/track', orderController.track);
+
+// Order details (requires authentication or valid guest order token)
+orderRouter.get('/:id', optionalAuthenticate, orderController.getById);
 
 // Order status workflow update (Staff / Manager / Admin)
 orderRouter.patch(

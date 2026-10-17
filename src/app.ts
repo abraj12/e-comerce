@@ -27,22 +27,47 @@ const projectRoot = process.cwd();
 
 export const app = express();
 
-// Security Headers via Helmet with relaxed script/style CSP for UI and Swagger
+// Security Headers via Helmet with CSP tailored for Storefront, Swagger & Razorpay Checkout
 app.use(
   helmet({
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://unpkg.com"],
-        styleSrc: ["'self'", "'unsafe-inline'", "https://unpkg.com"],
-        imgSrc: ["'self'", "data:", "https://images.unsplash.com", "https://unpkg.com"]
+        scriptSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "'unsafe-eval'",
+          'https://unpkg.com',
+          'https://checkout.razorpay.com'
+        ],
+        styleSrc: ["'self'", "'unsafe-inline'", 'https://unpkg.com'],
+        imgSrc: [
+          "'self'",
+          'data:',
+          'https://images.unsplash.com',
+          'https://unpkg.com',
+          'https://*.razorpay.com'
+        ],
+        frameSrc: ["'self'", 'https://api.razorpay.com', 'https://checkout.razorpay.com'],
+        connectSrc: ["'self'", 'https://api.razorpay.com', 'https://lumberjack.razorpay.com']
       }
     },
     crossOriginEmbedderPolicy: false
   })
 );
 
-app.use(cors());
+// Production CORS origin restrictions
+const allowedOrigins = env.ALLOWED_ORIGINS
+  ? env.ALLOWED_ORIGINS.split(',').map((o) => o.trim())
+  : [env.BASE_URL];
+
+app.use(
+  cors({
+    origin: env.NODE_ENV === 'production' ? allowedOrigins : true,
+    credentials: true
+  })
+);
+
 app.use(cookieParser(env.COOKIE_SECRET));
 
 // Parse JSON and capture raw buffer for webhook signature validation
@@ -58,7 +83,17 @@ app.use(express.urlencoded({ extended: true }));
 // Serve static frontend and uploads
 const publicDir = path.join(projectRoot, 'public');
 app.use(express.static(publicDir));
-app.use('/uploads', express.static(path.resolve(env.UPLOAD_DIR)));
+
+// Secure Uploads Directory: nosniff + no-script CSP defense
+app.use(
+  '/uploads',
+  (_req: Request, res: Response, next: NextFunction) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Content-Security-Policy', "default-src 'none'");
+    next();
+  },
+  express.static(path.resolve(env.UPLOAD_DIR))
+);
 
 // OpenAPI Spec & Documentation Viewer
 app.get('/docs/openapi.json', (_req: Request, res: Response) => {

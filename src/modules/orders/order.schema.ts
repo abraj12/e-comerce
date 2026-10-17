@@ -13,7 +13,7 @@ export const createOrderSchema = z.object({
   cartId: z.string().uuid().optional(),
   deliveryType: z.enum(['LOCAL_DELIVERY', 'STORE_PICKUP']).default('LOCAL_DELIVERY'),
   shippingAddress: checkoutAddressSchema.optional(),
-  paymentMethod: z.enum(['CASH_ON_DELIVERY', 'ONLINE_STRIPE', 'MOCK_GATEWAY']).default('CASH_ON_DELIVERY'),
+  paymentMethod: z.enum(['CASH_ON_DELIVERY', 'ONLINE_RAZORPAY', 'ONLINE_STRIPE', 'MOCK_GATEWAY']).default('CASH_ON_DELIVERY'),
   customerEmail: z.string().email(),
   customerPhone: z.string().min(8),
   couponCode: z.string().optional(),

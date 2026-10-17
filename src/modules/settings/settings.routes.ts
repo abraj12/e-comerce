@@ -3,10 +3,44 @@ import { prisma } from '../../core/database/prisma.js';
 import { env } from '../../core/config/env.js';
 import { authenticate } from '../../core/authentication/middleware.js';
 import { authorize } from '../../core/authorization/guard.js';
+import { validate } from '../../core/validation/validator.js';
+import { z } from 'zod';
 
 export const settingsRouter = Router();
 
-// Public: Get store branding and public profile
+// Whitelist of safe public setting keys that can be exposed to anonymous clients
+const PUBLIC_ALLOWED_SETTINGS = new Set([
+  'storeName',
+  'currency',
+  'email',
+  'phone',
+  'taxRate',
+  'announcementBanner',
+  'socialLinks',
+  'storeAddress',
+  'businessHours'
+]);
+
+const updateSettingSchema = z.object({
+  key: z
+    .string()
+    .min(1)
+    .max(100)
+    .refine(
+      (k) =>
+        !k.toLowerCase().includes('secret') &&
+        !k.toLowerCase().includes('password') &&
+        !k.toLowerCase().includes('token') &&
+        !k.toLowerCase().includes('key'),
+      {
+        message: 'Sensitive credentials or secrets cannot be stored in store settings'
+      }
+    ),
+  value: z.string().max(2000),
+  description: z.string().max(500).optional()
+});
+
+// Public: Get store branding and public profile (filters out any sensitive keys)
 settingsRouter.get('/', async (_req: Request, res: Response) => {
   try {
     const settings = await prisma.storeSetting.findMany();
@@ -19,7 +53,9 @@ settingsRouter.get('/', async (_req: Request, res: Response) => {
     };
 
     settings.forEach((s) => {
-      configMap[s.key] = s.value;
+      if (PUBLIC_ALLOWED_SETTINGS.has(s.key)) {
+        configMap[s.key] = s.value;
+      }
     });
 
     res.json({ success: true, data: configMap });
@@ -28,11 +64,12 @@ settingsRouter.get('/', async (_req: Request, res: Response) => {
   }
 });
 
-// Protected: Update store settings (Admin only)
+// Protected: Update store settings (Admin only with strict input validation)
 settingsRouter.post(
   '/',
   authenticate,
   authorize('ADMIN', 'write'),
+  validate({ body: updateSettingSchema }),
   async (req: Request, res: Response) => {
     try {
       const { key, value, description } = req.body;

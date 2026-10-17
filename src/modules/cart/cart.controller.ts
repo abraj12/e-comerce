@@ -52,7 +52,9 @@ export class CartController {
       );
       res.json({ success: true, data: cart });
     } catch (error) {
-      res.status(400).json({ success: false, error: (error as Error).message });
+      const msg = (error as Error).message;
+      const status = msg.includes('not found') || msg.includes('belong') ? 404 : 400;
+      res.status(status).json({ success: false, error: msg });
     }
   }
 
@@ -62,7 +64,9 @@ export class CartController {
       const cart = await cartService.removeItem(req.params.itemId as string, req.user?.userId, sessionId);
       res.json({ success: true, data: cart });
     } catch (error) {
-      res.status(400).json({ success: false, error: (error as Error).message });
+      const msg = (error as Error).message;
+      const status = msg.includes('not found') || msg.includes('belong') ? 404 : 400;
+      res.status(status).json({ success: false, error: msg });
     }
   }
 

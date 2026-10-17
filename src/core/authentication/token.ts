@@ -47,6 +47,9 @@ export function verifyAccessToken(token: string): TokenPayload | null {
   }
 }
 
+/**
+ * Validates and rotates refresh token with atomic revocation to prevent race condition reuse.
+ */
 export async function validateAndRotateSession(refreshToken: string): Promise<{ userId: string; newRefreshToken: string } | null> {
   const session = await prisma.session.findUnique({
     where: { token: refreshToken }
@@ -56,11 +59,19 @@ export async function validateAndRotateSession(refreshToken: string): Promise<{ 
     return null;
   }
 
-  // Revoke old session and issue new rotated session (token rotation pattern)
-  await prisma.session.update({
-    where: { id: session.id },
+  // Atomic revocation check: only proceed if session has not been revoked concurrently
+  const updateResult = await prisma.session.updateMany({
+    where: {
+      id: session.id,
+      revokedAt: null
+    },
     data: { revokedAt: new Date() }
   });
+
+  if (updateResult.count === 0) {
+    // Concurrent refresh detected
+    return null;
+  }
 
   const newRefreshToken = await createSession(session.userId);
   return { userId: session.userId, newRefreshToken };

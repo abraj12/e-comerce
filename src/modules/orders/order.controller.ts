@@ -36,12 +36,22 @@ export class OrderController {
 
   async getById(req: Request, res: Response): Promise<void> {
     try {
-      const order = await orderService.getOrderById(req.params.id as string, req.user);
+      const guestToken = (req.query.token as string) || (req.headers['x-order-token'] as string);
+      const order = await orderService.getOrderById(req.params.id as string, req.user, guestToken);
       res.json({ success: true, data: order });
     } catch (error) {
       const msg = (error as Error).message;
-      const status = msg.includes('Forbidden') ? 403 : 404;
+      const status = msg.includes('Forbidden') ? 403 : msg.includes('Unauthorized') ? 401 : 404;
       res.status(status).json({ success: false, error: msg });
+    }
+  }
+
+  async track(req: Request, res: Response): Promise<void> {
+    try {
+      const tracking = await orderService.trackOrderPublic(req.params.orderNumber as string);
+      res.json({ success: true, data: tracking });
+    } catch (error) {
+      res.status(404).json({ success: false, error: (error as Error).message });
     }
   }
 

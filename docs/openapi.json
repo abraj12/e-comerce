@@ -67,7 +67,7 @@
           "deliveryFee": { "type": "number" },
           "totalAmount": { "type": "number" },
           "status": { "type": "string", "enum": ["PENDING", "PAID", "PROCESSING", "DISPATCHED", "DELIVERED", "CANCELLED", "REFUNDED"] },
-          "paymentMethod": { "type": "string", "enum": ["CASH_ON_DELIVERY", "ONLINE_STRIPE", "MOCK_GATEWAY"] }
+          "paymentMethod": { "type": "string", "enum": ["CASH_ON_DELIVERY", "ONLINE_RAZORPAY", "ONLINE_STRIPE", "MOCK_GATEWAY"] }
         }
       }
     }
@@ -144,16 +144,39 @@
         "responses": { "201": { "description": "Order placed successfully" } }
       }
     },
+    "/api/orders/{orderNumber}/track": {
+      "get": {
+        "summary": "Public safe order tracking endpoint (non-sensitive fulfillment status only)",
+        "parameters": [{ "name": "orderNumber", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Public order status" } }
+      }
+    },
     "/api/orders/{id}": {
       "get": {
-        "summary": "Track and view order details by ID or Order Number",
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "summary": "View private order details (requires auth or matching guest token)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "token", "in": "query", "required": false, "schema": { "type": "string" } }
+        ],
         "responses": { "200": { "description": "Order details" } }
+      }
+    },
+    "/api/payments/create-order": {
+      "post": {
+        "summary": "Create Razorpay Order on server using trusted database amounts",
+        "responses": { "200": { "description": "Razorpay order launch credentials" } }
+      }
+    },
+    "/api/payments/verify": {
+      "post": {
+        "summary": "Verify Razorpay checkout signature and server-side payment capture",
+        "responses": { "200": { "description": "Payment confirmed and order marked PAID" } }
       }
     },
     "/api/payments/webhook": {
       "post": {
-        "summary": "Stripe/Payment gateway webhook with HMAC-SHA256 signature verification and replay protection",
+        "summary": "Razorpay webhook with HMAC-SHA256 signature verification and idempotent event handling",
+        "parameters": [{ "name": "x-razorpay-signature", "in": "header", "required": true, "schema": { "type": "string" } }],
         "responses": { "200": { "description": "Webhook processed" } }
       }
     },

@@ -2,6 +2,9 @@ import { prisma } from '../../core/database/prisma.js';
 import { eventBus } from '../../core/events/eventBus.js';
 import { emailService } from '../../integrations/email/emailService.js';
 import { logger } from '../../core/logging/logger.js';
+import { Prisma } from '@prisma/client';
+
+type DbClient = Prisma.TransactionClient | typeof prisma;
 
 export class InventoryService {
   async adjustStock(params: {
@@ -10,10 +13,10 @@ export class InventoryService {
     reason: string;
     referenceId?: string;
     performedBy?: string;
-  }) {
+  }, client?: DbClient) {
     const { variantId, quantityChange, reason, referenceId, performedBy } = params;
 
-    return prisma.$transaction(async (tx) => {
+    const execute = async (tx: DbClient) => {
       const item = await tx.inventoryItem.findUnique({
         where: { variantId },
         include: { variant: { include: { product: true } } }
@@ -61,7 +64,6 @@ export class InventoryService {
           availableStock: available,
           threshold: item.lowStockThreshold
         });
-        // Send alert asynchronously
         emailService.sendLowStockAlert(
           item.variant.product.name,
           item.variant.sku,
@@ -71,60 +73,94 @@ export class InventoryService {
       }
 
       return updated;
-    });
+    };
+
+    if (client) {
+      return execute(client);
+    }
+    return prisma.$transaction(execute);
   }
 
   /**
-   * Atomic stock reservation to guarantee overselling protection under high concurrency
+   * Atomic stock reservation with optimistic concurrency version checking and retry.
+   * Guarantees overselling protection under high concurrency across both PostgreSQL and SQLite.
    */
-  async reserveStock(variantId: string, quantityToReserve: number, orderId?: string): Promise<boolean> {
-    return prisma.$transaction(async (tx) => {
-      const item = await tx.inventoryItem.findUnique({
-        where: { variantId },
-        include: { variant: { include: { product: true } } }
-      });
+  async reserveStock(
+    variantId: string,
+    quantityToReserve: number,
+    orderId?: string,
+    client?: DbClient
+  ): Promise<boolean> {
+    const MAX_RETRIES = 5;
 
-      if (!item) {
-        throw new Error(`Variant ${variantId} does not exist in inventory`);
+    const execute = async (tx: DbClient) => {
+      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        const item = await tx.inventoryItem.findUnique({
+          where: { variantId },
+          include: { variant: { include: { product: true } } }
+        });
+
+        if (!item) {
+          throw new Error(`Variant ${variantId} does not exist in inventory`);
+        }
+
+        const available = item.stockQuantity - item.reservedQuantity;
+        if (available < quantityToReserve) {
+          throw new Error(
+            `Insufficient stock for item '${item.variant.product.name} (${item.variant.sku})'. Requested: ${quantityToReserve}, Available: ${available}`
+          );
+        }
+
+        // Atomic conditional update using version guard
+        const updateResult = await tx.inventoryItem.updateMany({
+          where: {
+            id: item.id,
+            version: item.version
+          },
+          data: {
+            reservedQuantity: { increment: quantityToReserve },
+            version: { increment: 1 }
+          }
+        });
+
+        if (updateResult.count > 0) {
+          await tx.inventoryLog.create({
+            data: {
+              variantId,
+              changeAmount: quantityToReserve,
+              previousStock: item.stockQuantity,
+              newStock: item.stockQuantity,
+              reason: 'ORDER_RESERVATION',
+              referenceId: orderId,
+              performedBy: 'SYSTEM'
+            }
+          });
+          return true;
+        }
+
+        // Version conflict: wait with exponential jitter and retry
+        await new Promise((resolve) => setTimeout(resolve, Math.floor(Math.random() * 20 + 5)));
       }
 
-      const available = item.stockQuantity - item.reservedQuantity;
-      if (available < quantityToReserve) {
-        throw new Error(
-          `Insufficient stock for item '${item.variant.product.name} (${item.variant.sku})'. Requested: ${quantityToReserve}, Available: ${available}`
-        );
-      }
+      throw new Error(`Concurrency conflict reserving stock for variant ${variantId}. Please try again.`);
+    };
 
-      // Atomically increment reserved quantity
-      await tx.inventoryItem.update({
-        where: { id: item.id },
-        data: {
-          reservedQuantity: { increment: quantityToReserve },
-          version: { increment: 1 }
-        }
-      });
-
-      await tx.inventoryLog.create({
-        data: {
-          variantId,
-          changeAmount: quantityToReserve,
-          previousStock: item.stockQuantity,
-          newStock: item.stockQuantity,
-          reason: 'ORDER_RESERVATION',
-          referenceId: orderId,
-          performedBy: 'SYSTEM'
-        }
-      });
-
-      return true;
-    });
+    if (client) {
+      return execute(client);
+    }
+    return prisma.$transaction(execute);
   }
 
   /**
-   * Commit reservation: deduce from both total stock and reserved stock
+   * Commit reservation: deduct from both total stock and reserved stock atomically
    */
-  async commitReservation(variantId: string, quantityToDeduct: number, orderId?: string): Promise<void> {
-    await prisma.$transaction(async (tx) => {
+  async commitReservation(
+    variantId: string,
+    quantityToDeduct: number,
+    orderId?: string,
+    client?: DbClient
+  ): Promise<void> {
+    const execute = async (tx: DbClient) => {
       const item = await tx.inventoryItem.findUnique({ where: { variantId } });
       if (!item) return;
 
@@ -151,14 +187,25 @@ export class InventoryService {
           performedBy: 'SYSTEM'
         }
       });
-    });
+    };
+
+    if (client) {
+      await execute(client);
+    } else {
+      await prisma.$transaction(execute);
+    }
   }
 
   /**
    * Release reserved stock on order cancellation or checkout timeout
    */
-  async releaseReservation(variantId: string, quantityToRelease: number, orderId?: string): Promise<void> {
-    await prisma.$transaction(async (tx) => {
+  async releaseReservation(
+    variantId: string,
+    quantityToRelease: number,
+    orderId?: string,
+    client?: DbClient
+  ): Promise<void> {
+    const execute = async (tx: DbClient) => {
       const item = await tx.inventoryItem.findUnique({ where: { variantId } });
       if (!item) return;
 
@@ -183,7 +230,13 @@ export class InventoryService {
           performedBy: 'SYSTEM'
         }
       });
-    });
+    };
+
+    if (client) {
+      await execute(client);
+    } else {
+      await prisma.$transaction(execute);
+    }
   }
 
   async getLowStockItems() {

@@ -27,6 +27,7 @@ enum OrderStatus {
 
 enum PaymentMethod {
   CASH_ON_DELIVERY
+  ONLINE_RAZORPAY
   ONLINE_STRIPE
   MOCK_GATEWAY
 }
@@ -296,6 +297,7 @@ model Order {
   paymentMethod     PaymentMethod   @default(CASH_ON_DELIVERY)
   paymentStatus     PaymentStatus   @default(PENDING)
   deliveryStaffId   String?
+  guestAccessToken  String?
   notes             String?
   cancelledReason   String?
   createdAt         DateTime        @default(now())
@@ -336,8 +338,9 @@ model OrderItem {
 model PaymentTransaction {
   id                   String        @id @default(uuid())
   orderId              String
-  provider             String        // STRIPE, COD, MOCK
-  transactionReference String?       @unique
+  provider             String        // RAZORPAY, STRIPE, COD, MOCK
+  transactionReference String?       @unique // Razorpay Order ID (or gateway intent ID)
+  paymentId            String?       // Razorpay Payment ID upon capture
   amount               Float
   currency             String        @default("INR")
   status               PaymentStatus @default(PENDING)
@@ -350,6 +353,7 @@ model PaymentTransaction {
 
   @@index([orderId])
   @@index([transactionReference])
+  @@index([paymentId])
 }
 
 model Invoice {

@@ -9,7 +9,7 @@ if (!fs.existsSync(env.UPLOAD_DIR)) {
   fs.mkdirSync(env.UPLOAD_DIR, { recursive: true });
 }
 
-const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'];
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => {

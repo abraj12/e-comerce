@@ -10,6 +10,16 @@ import { recordAuditEvent } from '../../core/logging/audit.js';
 import { env } from '../../core/config/env.js';
 import crypto from 'crypto';
 
+export const ALLOWED_ORDER_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
+  [OrderStatus.PENDING]: [OrderStatus.PAID, OrderStatus.PROCESSING, OrderStatus.CANCELLED],
+  [OrderStatus.PAID]: [OrderStatus.PROCESSING, OrderStatus.CANCELLED, OrderStatus.REFUNDED],
+  [OrderStatus.PROCESSING]: [OrderStatus.DISPATCHED, OrderStatus.CANCELLED, OrderStatus.REFUNDED],
+  [OrderStatus.DISPATCHED]: [OrderStatus.DELIVERED, OrderStatus.CANCELLED, OrderStatus.REFUNDED],
+  [OrderStatus.DELIVERED]: [OrderStatus.REFUNDED],
+  [OrderStatus.CANCELLED]: [], // Terminal state
+  [OrderStatus.REFUNDED]: []   // Terminal state
+};
+
 function generateOrderNumber(): string {
   const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
   const randomSuffix = crypto.randomBytes(3).toString('hex').toUpperCase();
@@ -118,45 +128,19 @@ export class OrderService {
 
     const orderNumber = generateOrderNumber();
     const invoiceNumber = generateInvoiceNumber();
+    // Cryptographically secure token for deliberate guest order/invoice access
+    const guestAccessToken = !customerId ? crypto.randomBytes(24).toString('hex') : null;
 
-    // Atomic execution: reserve stock, create order, order items, invoice, and clear cart
+    // Atomic execution: reserve stock with optimistic version checking, create order, invoice, and clear cart
     const createdOrder = await prisma.$transaction(async (tx) => {
-      // 1. Reserve stock for each item
+      // 1. Atomically reserve stock for each item using version concurrency guard
       for (const item of cart.items) {
-        const inventory = await tx.inventoryItem.findUnique({
-          where: { variantId: item.variantId }
-        });
-
-        if (!inventory) {
-          throw new Error(`Inventory item for variant ${item.variantId} not found`);
-        }
-
-        const available = inventory.stockQuantity - inventory.reservedQuantity;
-        if (available < item.quantity) {
-          throw new Error(
-            `Insufficient stock for item '${item.productName} (${item.sku})'. Available: ${available}, Requested: ${item.quantity}`
-          );
-        }
-
-        await tx.inventoryItem.update({
-          where: { id: inventory.id },
-          data: {
-            reservedQuantity: { increment: item.quantity },
-            version: { increment: 1 }
-          }
-        });
-
-        await tx.inventoryLog.create({
-          data: {
-            variantId: item.variantId,
-            changeAmount: item.quantity,
-            previousStock: inventory.stockQuantity,
-            newStock: inventory.stockQuantity,
-            reason: 'ORDER_RESERVATION',
-            referenceId: orderNumber,
-            performedBy: customerId || 'GUEST'
-          }
-        });
+        await inventoryService.reserveStock(
+          item.variantId,
+          item.quantity,
+          orderNumber,
+          tx
+        );
       }
 
       // 2. Create Order
@@ -181,6 +165,7 @@ export class OrderService {
           status: initialStatus,
           paymentMethod,
           paymentStatus: PaymentStatus.PENDING,
+          guestAccessToken,
           notes: notes || null,
           items: {
             create: cart.items.map((i) => ({
@@ -283,7 +268,14 @@ export class OrderService {
     };
   }
 
-  async getOrderById(orderId: string, requestingUser?: { userId: string; role: string }) {
+  /**
+   * Protected order retrieval: Enforces strict ownership checks and rejects unauthenticated access.
+   */
+  async getOrderById(
+    orderId: string,
+    requestingUser?: { userId: string; role: string },
+    guestToken?: string
+  ) {
     const order = await prisma.order.findFirst({
       where: {
         OR: [{ id: orderId }, { orderNumber: orderId }]
@@ -302,18 +294,68 @@ export class OrderService {
       throw new Error(`Order ${orderId} not found`);
     }
 
-    // Access control: Customer can only see their own order; Employees/Admin can inspect any order
-    if (
-      requestingUser &&
-      requestingUser.role === 'CUSTOMER' &&
-      order.customerId !== requestingUser.userId
-    ) {
-      throw new Error('Forbidden: You are not authorized to view this order');
+    // 1. If requester is authenticated
+    if (requestingUser) {
+      if (requestingUser.role === 'CUSTOMER' && order.customerId !== requestingUser.userId) {
+        throw new Error('Forbidden: You are not authorized to view this order');
+      }
+      return order;
     }
 
-    return order;
+    // 2. If requester is unauthenticated
+    // Orders with customer accounts strictly require authentication
+    if (order.customerId) {
+      throw new Error('Unauthorized: Authentication required to view private order');
+    }
+
+    // Guest checkout orders require a matching guestAccessToken
+    if (guestToken && order.guestAccessToken && guestToken === order.guestAccessToken) {
+      return order;
+    }
+
+    throw new Error('Unauthorized: Authentication or valid guest access token required to view order');
   }
 
+  /**
+   * Public Safe Order Tracking: Returns non-sensitive fulfillment status only.
+   */
+  async trackOrderPublic(orderNumber: string) {
+    const order = await prisma.order.findFirst({
+      where: {
+        OR: [{ orderNumber }, { id: orderNumber }]
+      },
+      select: {
+        orderNumber: true,
+        status: true,
+        deliveryType: true,
+        createdAt: true,
+        items: {
+          select: {
+            productName: true,
+            variantName: true,
+            quantity: true
+          }
+        }
+      }
+    });
+
+    if (!order) {
+      throw new Error(`Order not found for tracking: ${orderNumber}`);
+    }
+
+    return {
+      orderNumber: order.orderNumber,
+      status: order.status,
+      deliveryType: order.deliveryType,
+      createdAt: order.createdAt,
+      itemCount: order.items.length,
+      items: order.items
+    };
+  }
+
+  /**
+   * Explicit order status transition validation and atomic inventory state handling.
+   */
   async updateOrderStatus(orderId: string, newStatus: OrderStatus, reason?: string, updaterUserId?: string) {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
@@ -326,44 +368,80 @@ export class OrderService {
 
     const previousStatus = order.status;
 
-    // Handle inventory state transitions
-    if (newStatus === OrderStatus.CANCELLED || newStatus === OrderStatus.REFUNDED) {
-      // Release or restock items
-      for (const item of order.items) {
-        if (item.variantId) {
-          if (previousStatus === OrderStatus.PENDING || previousStatus === OrderStatus.PROCESSING) {
-            await inventoryService.releaseReservation(item.variantId, item.quantity, order.orderNumber);
-          } else if (previousStatus === OrderStatus.DISPATCHED || previousStatus === OrderStatus.DELIVERED) {
-            await inventoryService.adjustStock({
-              variantId: item.variantId,
-              quantityChange: item.quantity,
-              reason: 'RETURN',
-              referenceId: order.orderNumber,
-              performedBy: updaterUserId
-            });
+    // Idempotent no-op if status is unchanged
+    if (previousStatus === newStatus) {
+      return order;
+    }
+
+    // Enforce explicit order-status transition state machine
+    const allowedNextStatuses = ALLOWED_ORDER_STATUS_TRANSITIONS[previousStatus] || [];
+    if (!allowedNextStatuses.includes(newStatus)) {
+      throw new Error(
+        `Invalid order status transition: Cannot transition order from ${previousStatus} to ${newStatus}`
+      );
+    }
+
+    // Atomic transaction for order status update and inventory handling
+    const updated = await prisma.$transaction(async (tx) => {
+      // Handle inventory state transitions
+      if (newStatus === OrderStatus.CANCELLED) {
+        for (const item of order.items) {
+          if (item.variantId) {
+            if (previousStatus === OrderStatus.PENDING || previousStatus === OrderStatus.PROCESSING) {
+              await inventoryService.releaseReservation(item.variantId, item.quantity, order.orderNumber, tx);
+            } else if (previousStatus === OrderStatus.DISPATCHED || previousStatus === OrderStatus.DELIVERED) {
+              await inventoryService.adjustStock({
+                variantId: item.variantId,
+                quantityChange: item.quantity,
+                reason: 'CANCEL_RESTOCK',
+                referenceId: order.orderNumber,
+                performedBy: updaterUserId
+              }, tx);
+            }
+          }
+        }
+      } else if (newStatus === OrderStatus.REFUNDED) {
+        // Only restock if transitioning from active fulfilled states
+        if (previousStatus === OrderStatus.DISPATCHED || previousStatus === OrderStatus.DELIVERED) {
+          for (const item of order.items) {
+            if (item.variantId) {
+              await inventoryService.adjustStock({
+                variantId: item.variantId,
+                quantityChange: item.quantity,
+                reason: 'REFUND_RESTOCK',
+                referenceId: order.orderNumber,
+                performedBy: updaterUserId
+              }, tx);
+            }
+          }
+        } else if (previousStatus === OrderStatus.PENDING || previousStatus === OrderStatus.PROCESSING) {
+          for (const item of order.items) {
+            if (item.variantId) {
+              await inventoryService.releaseReservation(item.variantId, item.quantity, order.orderNumber, tx);
+            }
+          }
+        }
+      } else if (
+        newStatus === OrderStatus.PAID &&
+        previousStatus !== OrderStatus.PAID &&
+        previousStatus !== OrderStatus.DELIVERED
+      ) {
+        // Commit reserved stock
+        for (const item of order.items) {
+          if (item.variantId) {
+            await inventoryService.commitReservation(item.variantId, item.quantity, order.orderNumber, tx);
           }
         }
       }
-    } else if (
-      (newStatus === OrderStatus.PAID || newStatus === OrderStatus.DELIVERED) &&
-      previousStatus !== OrderStatus.PAID &&
-      previousStatus !== OrderStatus.DELIVERED
-    ) {
-      // Commit reserved stock
-      for (const item of order.items) {
-        if (item.variantId) {
-          await inventoryService.commitReservation(item.variantId, item.quantity, order.orderNumber);
-        }
-      }
-    }
 
-    const updated = await prisma.order.update({
-      where: { id: orderId },
-      data: {
-        status: newStatus,
-        cancelledReason: reason || order.cancelledReason,
-        paymentStatus: newStatus === OrderStatus.PAID ? PaymentStatus.COMPLETED : order.paymentStatus
-      }
+      return tx.order.update({
+        where: { id: orderId },
+        data: {
+          status: newStatus,
+          cancelledReason: reason || order.cancelledReason,
+          paymentStatus: newStatus === OrderStatus.PAID ? PaymentStatus.COMPLETED : order.paymentStatus
+        }
+      });
     });
 
     if (updaterUserId) {

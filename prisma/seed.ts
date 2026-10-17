@@ -6,10 +6,18 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('Seeding ALGIONS E-Commerce database...');
 
-  const passwordHash = await bcrypt.hash('Admin@123456', 12);
-  const staffPasswordHash = await bcrypt.hash('Staff@123456', 12);
-  const riderPasswordHash = await bcrypt.hash('Rider@123456', 12);
-  const custPasswordHash = await bcrypt.hash('Customer@123456', 12);
+  if (process.env.NODE_ENV === 'production') {
+    if (!process.env.SEED_ADMIN_PASSWORD || process.env.SEED_ADMIN_PASSWORD === 'Admin@123456') {
+      console.error('CRITICAL SECURITY ERROR: Seeding default demo passwords in production is prohibited. Set SEED_ADMIN_PASSWORD in environment.');
+      process.exit(1);
+    }
+  }
+
+  const adminPass = process.env.SEED_ADMIN_PASSWORD || 'Admin@123456';
+  const passwordHash = await bcrypt.hash(adminPass, 12);
+  const staffPasswordHash = await bcrypt.hash(process.env.SEED_STAFF_PASSWORD || 'Staff@123456', 12);
+  const riderPasswordHash = await bcrypt.hash(process.env.SEED_RIDER_PASSWORD || 'Rider@123456', 12);
+  const custPasswordHash = await bcrypt.hash(process.env.SEED_CUST_PASSWORD || 'Customer@123456', 12);
 
   // 1. Users
   const admin = await prisma.user.upsert({

@@ -525,16 +525,19 @@ async function submitOrder(event) {
     document.getElementById('confirmedOrderNumber').textContent = order.orderNumber;
     document.getElementById('confirmedTotal').textContent = `₹${order.totalAmount.toFixed(2)}`;
     document.getElementById('confirmedPaymentMethod').textContent = order.paymentMethod;
-    document.getElementById('viewInvoiceLink').href = `/api/invoices/${order.id}/render`;
+    const invoiceUrl = `/api/invoices/${order.id}/render${order.guestAccessToken ? `?token=${encodeURIComponent(order.guestAccessToken)}` : ''}`;
+    document.getElementById('viewInvoiceLink').href = invoiceUrl;
 
-    // If online mock payment selected, offer instant payment button
+    // Razorpay online payment integration
+    const razorpayBtn = document.getElementById('razorpayPayNowBtn');
     const mockPayBtn = document.getElementById('mockPayNowBtn');
-    if (order.paymentMethod !== 'CASH_ON_DELIVERY') {
-      mockPayBtn.style.display = 'inline-block';
-      mockPayBtn.onclick = () => triggerMockPayment(order.id);
+    if (order.paymentMethod === 'ONLINE_RAZORPAY' || order.paymentMethod === 'ONLINE_STRIPE') {
+      razorpayBtn.style.display = 'inline-block';
+      razorpayBtn.onclick = () => triggerRazorpayPayment(order);
     } else {
-      mockPayBtn.style.display = 'none';
+      razorpayBtn.style.display = 'none';
     }
+    if (mockPayBtn) mockPayBtn.style.display = 'none';
 
     openModal('orderSuccessModal');
     showToast(`Order #${order.orderNumber} placed successfully!`);
@@ -543,27 +546,71 @@ async function submitOrder(event) {
   }
 }
 
-async function triggerMockPayment(orderId) {
+async function triggerRazorpayPayment(order) {
   try {
-    const res = await fetch('/api/payments/mock-pay', {
+    const res = await fetch('/api/payments/create-order', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...getAuthHeader()
       },
-      body: JSON.stringify({ orderId })
+      body: JSON.stringify({ orderId: order.id })
     });
     const data = await res.json();
     if (!data.success) throw new Error(data.error);
 
-    document.getElementById('mockPayNowBtn').style.display = 'none';
-    showToast('Payment verified successfully! Order marked as PAID.');
+    const rzpOptions = {
+      key: data.data.keyId,
+      amount: data.data.amount,
+      currency: data.data.currency,
+      name: 'ALGIONS Retail Mart',
+      description: `Payment for Order #${order.orderNumber}`,
+      order_id: data.data.razorpayOrderId,
+      prefill: {
+        email: order.customerEmail,
+        contact: order.customerPhone
+      },
+      handler: async function (response) {
+        try {
+          const verifyRes = await fetch('/api/payments/verify', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...getAuthHeader()
+            },
+            body: JSON.stringify({
+              orderId: order.id,
+              razorpayOrderId: response.razorpay_order_id,
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpaySignature: response.razorpay_signature
+            })
+          });
+          const verifyData = await verifyRes.json();
+          if (!verifyData.success) throw new Error(verifyData.error);
+
+          showToast('Payment verified successfully! Order marked as PAID.');
+          document.getElementById('confirmedPaymentMethod').textContent = 'ONLINE_RAZORPAY (PAID)';
+          const rzpBtn = document.getElementById('razorpayPayNowBtn');
+          if (rzpBtn) rzpBtn.style.display = 'none';
+        } catch (vErr) {
+          showToast('Payment verification failed: ' + vErr.message, true);
+        }
+      },
+      theme: { color: '#2563eb' }
+    };
+
+    if (typeof Razorpay !== 'undefined') {
+      const rzp = new Razorpay(rzpOptions);
+      rzp.open();
+    } else {
+      showToast('Razorpay Checkout SDK not loaded. Please refresh.', true);
+    }
   } catch (err) {
     showToast(err.message, true);
   }
 }
 
-// Track Order Lookup
+// Track Order Lookup using Safe Public Tracking Endpoint
 async function trackOrder() {
   const orderNum = document.getElementById('trackOrderInput').value.trim();
   if (!orderNum) return;
@@ -572,9 +619,7 @@ async function trackOrder() {
   resultContainer.innerHTML = 'Searching order record...';
 
   try {
-    const res = await fetch(`/api/orders/${encodeURIComponent(orderNum)}`, {
-      headers: { ...getAuthHeader() }
-    });
+    const res = await fetch(`/api/orders/${encodeURIComponent(orderNum)}/track`);
     const data = await res.json();
 
     if (!data.success) {
@@ -590,15 +635,11 @@ async function trackOrder() {
           <span class="product-tag tag-stock">${o.status}</span>
         </div>
         <div style="font-size: 0.9rem; color: #475569;">Placed: ${new Date(o.createdAt).toLocaleString()}</div>
-        <div style="font-size: 0.9rem; color: #475569;">Total: ₹${o.totalAmount.toFixed(2)} (${o.paymentMethod})</div>
-        ${o.deliveryStaff ? `<div style="font-size: 0.9rem; color: #16a34a; margin-top: 0.3rem;">Assigned Delivery Staff: <strong>${o.deliveryStaff.name}</strong> (${o.deliveryStaff.phone || 'Active'})</div>` : ''}
-        <div style="margin-top: 0.75rem;">
-          <a href="/api/invoices/${o.id}/render" target="_blank" class="btn btn-outline btn-sm">View Tax Invoice</a>
-        </div>
+        <div style="font-size: 0.9rem; color: #475569;">Delivery Mode: ${o.deliveryType} (${o.itemCount} item(s))</div>
       </div>
     `;
   } catch (err) {
-    resultContainer.innerHTML = `<span style="color: #ef4444;">Error retrieving order.</span>`;
+    resultContainer.innerHTML = `<span style="color: #ef4444;">Error retrieving order tracking.</span>`;
   }
 }
 
