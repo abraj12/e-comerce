@@ -30,7 +30,7 @@
   "author": "ALGIONS AI LABS PRIVATE LIMITED",
   "license": "Apache-2.0",
   "dependencies": {
-    "@prisma/client": "^6.4.1",
+    "@prisma/client": "^7.10.0",
     "bcryptjs": "^3.0.3",
     "casbin": "^5.51.1",
     "cookie-parser": "^1.4.7",
