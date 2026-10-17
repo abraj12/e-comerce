@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ALGIONS Admin Portal | Shop Operations</title>
+  <link rel="stylesheet" href="/admin/admin.css" />
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      🏢 ALGIONS LABS
+    </div>
+    <ul class="sidebar-menu">
+      <li class="sidebar-item active" onclick="switchTab('secDashboard', this)">
+        <span>📊</span> Dashboard
+      </li>
+      <li class="sidebar-item" onclick="switchTab('secProducts', this)">
+        <span>📦</span> Products
+      </li>
+      <li class="sidebar-item" onclick="switchTab('secCategories', this)">
+        <span>🏷️</span> Categories
+      </li>
+      <li class="sidebar-item" onclick="switchTab('secInventory', this)">
+        <span>📋</span> Inventory
+      </li>
+      <li class="sidebar-item" onclick="switchTab('secOrders', this)">
+        <span>🛒</span> Orders
+      </li>
+      <li class="sidebar-item" onclick="switchTab('secDelivery', this)">
+        <span>🚚</span> Delivery Zones
+      </li>
+      <li class="sidebar-item" onclick="switchTab('secCoupons', this)">
+        <span>🎟️</span> Coupons
+      </li>
+      <li class="sidebar-item" onclick="switchTab('secAudit', this)">
+        <span>🛡️</span> Security Audit
+      </li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <div>Logged in as:</div>
+      <strong id="adminUserName" style="color: #fff;">Staff User</strong>
+      <div id="adminUserRole" style="font-size: 0.75rem; color: #38bdf8;">ADMIN</div>
+      <button class="btn btn-outline btn-sm" style="width: 100%; margin-top: 0.75rem; color: #fff; border-color: rgba(255,255,255,0.2);" onclick="adminLogout()">Sign Out</button>
+    </div>
+  </aside>
+
+  <!-- Main Workspace -->
+  <div class="main-wrapper">
+    <header class="admin-header">
+      <h2 style="font-size: 1.25rem;">Retail Shop Operations Center</h2>
+      <div style="display: flex; gap: 0.75rem;">
+        <a href="/" target="_blank" class="btn btn-outline btn-sm">🏪 View Live Storefront</a>
+        <a href="/api-docs" target="_blank" class="btn btn-outline btn-sm">📖 OpenAPI Docs</a>
+      </div>
+    </header>
+
+    <main class="content-container">
+
+      <!-- Section: Dashboard -->
+      <section id="secDashboard" class="section active">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <span class="stat-label">Total Revenue</span>
+            <div class="stat-value" id="statRevenue">₹0.00</div>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Total Orders</span>
+            <div class="stat-value" id="statOrders">0</div>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Active Catalogue Items</span>
+            <div class="stat-value" id="statProducts">0</div>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label" style="color: #ef4444;">Low Stock Alerts</span>
+            <div class="stat-value" id="statLowStock" style="color: #ef4444;">0</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Recent Customer Orders</div>
+          </div>
+          <div class="table-responsive">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Order Number</th>
+                  <th>Customer</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody id="dashboardRecentOrders">
+                <!-- Loaded dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section: Products -->
+      <section id="secProducts" class="section">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Product Catalogue Management</div>
+            <button class="btn btn-primary btn-sm" onclick="openAdminModal('addProductModal')">+ Create Product</button>
+          </div>
+          <div class="table-responsive">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Master SKU</th>
+                  <th>Category</th>
+                  <th>Base Price</th>
+                  <th>Available Stock</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="productsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section: Categories -->
+      <section id="secCategories" class="section">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Categories & Taxonomy</div>
+            <button class="btn btn-primary btn-sm" onclick="openAdminModal('addCategoryModal')">+ New Category</button>
+          </div>
+          <div class="table-responsive">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Category Name</th>
+                  <th>Slug</th>
+                  <th>Products Count</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="categoriesTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section: Inventory -->
+      <section id="secInventory" class="section">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title" style="color: #b91c1c;">⚠️ Low-Stock Warnings & Restock Thresholds</div>
+          </div>
+          <div class="table-responsive">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>SKU</th>
+                  <th>Physical Stock</th>
+                  <th>Reserved Quantity</th>
+                  <th>Available Quantity</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="lowStockTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Inventory Movement History</div>
+          </div>
+          <div class="table-responsive">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Variant</th>
+                  <th>Quantity Delta</th>
+                  <th>Transition</th>
+                  <th>Reason</th>
+                  <th>Reference</th>
+                </tr>
+              </thead>
+              <tbody id="inventoryLogsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section: Orders -->
+      <section id="secOrders" class="section">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Orders Fulfillment & Dispatch</div>
+          </div>
+          <div class="table-responsive">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Order #</th>
+                  <th>Customer Info</th>
+                  <th>Total & Payment</th>
+                  <th>Order Status</th>
+                  <th>Delivery Assignment</th>
+                  <th>Receipt</th>
+                </tr>
+              </thead>
+              <tbody id="ordersTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section: Delivery Zones -->
+      <section id="secDelivery" class="section">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Local Delivery Service Areas & PIN Codes</div>
+            <button class="btn btn-primary btn-sm" onclick="openAdminModal('addZoneModal')">+ Add Delivery Zone</button>
+          </div>
+          <div class="table-responsive">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Zone Name</th>
+                  <th>Covered PIN Codes</th>
+                  <th>Base Delivery Fee</th>
+                  <th>Free Delivery Rule</th>
+                  <th>Est. Window</th>
+                </tr>
+              </thead>
+              <tbody id="zonesTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section: Coupons -->
+      <section id="secCoupons" class="section">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Coupons & Promotional Rules</div>
+            <button class="btn btn-primary btn-sm" onclick="openAdminModal('addCouponModal')">+ Create Coupon</button>
+          </div>
+          <div class="table-responsive">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Coupon Code</th>
+                  <th>Discount Value</th>
+                  <th>Min Order</th>
+                  <th>Usage</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="couponsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section: Audit Logs -->
+      <section id="secAudit" class="section">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">System & Security Audit Log (OWASP Event Monitoring)</div>
+          </div>
+          <div class="table-responsive">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Action</th>
+                  <th>Actor</th>
+                  <th>Target Entity</th>
+                  <th>IP Address</th>
+                </tr>
+              </thead>
+              <tbody id="auditTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Create Product Modal -->
+  <div class="modal-overlay" id="addProductModal">
+    <div class="modal-content">
+      <h3 style="margin-bottom: 1rem;">Add New Retail Product</h3>
+      <form id="createProductForm" onsubmit="handleCreateProduct(event)">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Product Name:</label>
+            <input type="text" id="prodName" class="form-control" required placeholder="e.g. Organic Brown Rice" />
+          </div>
+          <div class="form-group">
+            <label>Master SKU:</label>
+            <input type="text" id="prodSku" class="form-control" required placeholder="e.g. GROC-RICE-01" />
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Base Price (₹):</label>
+            <input type="number" id="prodPrice" step="0.01" class="form-control" required placeholder="120.00" />
+          </div>
+          <div class="form-group">
+            <label>Initial Stock Units:</label>
+            <input type="number" id="prodStock" class="form-control" value="25" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Category:</label>
+          <select id="prodCategory" class="form-control">
+            <option value="">Select Category...</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Product Image (Optional Upload):</label>
+          <input type="file" id="prodImageFile" class="form-control" accept="image/*" />
+        </div>
+
+        <div class="form-group">
+          <label>Description:</label>
+          <textarea id="prodDesc" class="form-control" rows="2" placeholder="Quality product description..."></textarea>
+        </div>
+
+        <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1.5rem;">
+          <button type="button" class="btn btn-outline" onclick="closeAdminModal('addProductModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Product</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Create Category Modal -->
+  <div class="modal-overlay" id="addCategoryModal">
+    <div class="modal-content">
+      <h3 style="margin-bottom: 1rem;">Create Category</h3>
+      <form id="createCategoryForm" onsubmit="handleCreateCategory(event)">
+        <div class="form-group">
+          <label>Category Name:</label>
+          <input type="text" id="catName" class="form-control" required placeholder="e.g. Traditional Sweets" />
+        </div>
+        <div class="form-group">
+          <label>Description (Optional):</label>
+          <textarea id="catDesc" class="form-control" rows="2"></textarea>
+        </div>
+        <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1.5rem;">
+          <button type="button" class="btn btn-outline" onclick="closeAdminModal('addCategoryModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create Category</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Restock Modal -->
+  <div class="modal-overlay" id="restockModal">
+    <div class="modal-content">
+      <h3>Restock / Adjust Inventory</h3>
+      <p id="restockProductName" style="color: #64748b; margin: 0.5rem 0 1rem;"></p>
+      <form onsubmit="handleStockAdjustment(event)">
+        <input type="hidden" id="restockVariantId" />
+        <div class="form-group">
+          <label>Quantity Delta (+ to add stock, - to deduct):</label>
+          <input type="number" id="restockQty" class="form-control" required value="20" />
+        </div>
+        <div class="form-group">
+          <label>Reason:</label>
+          <select id="restockReason" class="form-control">
+            <option value="RESTOCK">Supplier Restock</option>
+            <option value="MANUAL_ADJUSTMENT">Physical Inventory Correction</option>
+            <option value="DAMAGED">Damaged / Expired Removal</option>
+          </select>
+        </div>
+        <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1.5rem;">
+          <button type="button" class="btn btn-outline" onclick="closeAdminModal('restockModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Adjustment</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Assign Staff Modal -->
+  <div class="modal-overlay" id="assignStaffModal">
+    <div class="modal-content">
+      <h3 style="margin-bottom: 1rem;">Assign Order to Delivery Personnel</h3>
+      <form onsubmit="handleAssignDeliveryStaff(event)">
+        <input type="hidden" id="assignOrderId" />
+        <div class="form-group">
+          <label>Select Delivery Staff:</label>
+          <select id="assignStaffSelect" class="form-control" required></select>
+        </div>
+        <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1.5rem;">
+          <button type="button" class="btn btn-outline" onclick="closeAdminModal('assignStaffModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Dispatch & Assign</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Zone Modal -->
+  <div class="modal-overlay" id="addZoneModal">
+    <div class="modal-content">
+      <h3 style="margin-bottom: 1rem;">Add Local Delivery Zone</h3>
+      <form id="createZoneForm" onsubmit="handleCreateZone(event)">
+        <div class="form-group">
+          <label>Zone Name:</label>
+          <input type="text" id="zoneName" class="form-control" required placeholder="e.g. East Sector / Indiranagar" />
+        </div>
+        <div class="form-group">
+          <label>Covered PIN Codes (Comma-separated):</label>
+          <input type="text" id="zonePins" class="form-control" required placeholder="560001, 560002, 560038" />
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Delivery Fee (₹):</label>
+            <input type="number" id="zoneFee" class="form-control" required value="40" />
+          </div>
+          <div class="form-group">
+            <label>Free Delivery Threshold (₹):</label>
+            <input type="number" id="zoneFreeMin" class="form-control" value="500" />
+          </div>
+        </div>
+        <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1.5rem;">
+          <button type="button" class="btn btn-outline" onclick="closeAdminModal('addZoneModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create Zone</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Coupon Modal -->
+  <div class="modal-overlay" id="addCouponModal">
+    <div class="modal-content">
+      <h3 style="margin-bottom: 1rem;">Create Discount Coupon</h3>
+      <form id="createCouponForm" onsubmit="handleCreateCoupon(event)">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Coupon Code:</label>
+            <input type="text" id="coupCode" class="form-control" required placeholder="FESTIVE20" style="text-transform: uppercase;" />
+          </div>
+          <div class="form-group">
+            <label>Discount Type:</label>
+            <select id="coupType" class="form-control">
+              <option value="PERCENTAGE">Percentage (%)</option>
+              <option value="FIXED">Fixed Amount (₹)</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Discount Value:</label>
+            <input type="number" id="coupValue" class="form-control" required value="10" />
+          </div>
+          <div class="form-group">
+            <label>Minimum Order (₹):</label>
+            <input type="number" id="coupMin" class="form-control" value="150" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Total Usage Limit (Optional):</label>
+          <input type="number" id="coupLimit" class="form-control" placeholder="Unlimited" />
+        </div>
+        <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1.5rem;">
+          <button type="button" class="btn btn-outline" onclick="closeAdminModal('addCouponModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create Coupon</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Admin Login Modal -->
+  <div class="modal-overlay" id="loginModalOverlay">
+    <div class="modal-content" style="max-width: 400px; text-align: center;">
+      <h2 style="margin-bottom: 0.5rem;">Staff & Admin Sign In</h2>
+      <p style="color: #64748b; font-size: 0.9rem; margin-bottom: 1.5rem;">Access the ALGIONS retail operations management portal</p>
+
+      <form onsubmit="handleAdminLogin(event)">
+        <div class="form-group" style="text-align: left;">
+          <label>Employee Email:</label>
+          <input type="email" id="loginEmail" class="form-control" required value="admin@algions.local" />
+        </div>
+        <div class="form-group" style="text-align: left;">
+          <label>Password:</label>
+          <input type="password" id="loginPassword" class="form-control" required value="Admin@123456" />
+        </div>
+        <div id="loginErrorMsg" style="color: #ef4444; font-size: 0.85rem; margin-bottom: 1rem;"></div>
+        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.75rem;">
+          Authenticate
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script src="/admin/admin.js"></script>
+</body>
+</html>

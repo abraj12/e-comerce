@@ -1,0 +1,175 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "ALGIONS Retail E-Commerce API",
+    "description": "Secure, Reusable, Component-Based E-commerce Application Backend for ALGIONS AI LABS PRIVATE LIMITED. Engineered for independent client deployments across clothing, grocery, sweets, and electronics retail.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "ALGIONS AI LABS Engineering Team",
+      "email": "engineering@algions.com"
+    },
+    "license": {
+      "name": "Apache-2.0",
+      "url": "https://www.apache.org/licenses/LICENSE-2.0.html"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Local Independent Client Development Server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JSON Web Token issued upon successful customer or employee login."
+      }
+    },
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": false },
+          "error": { "type": "string", "example": "Invalid email or password" }
+        }
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "email": { "type": "string", "format": "email" },
+          "name": { "type": "string" },
+          "role": { "type": "string", "enum": ["ADMIN", "MANAGER", "STAFF", "DELIVERY", "CUSTOMER"] }
+        }
+      },
+      "Product": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "slug": { "type": "string" },
+          "basePrice": { "type": "number" },
+          "sku": { "type": "string" },
+          "availableStock": { "type": "integer" }
+        }
+      },
+      "Order": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "orderNumber": { "type": "string", "example": "ORD-20261017-A1B2C3" },
+          "subtotal": { "type": "number" },
+          "discountAmount": { "type": "number" },
+          "taxAmount": { "type": "number" },
+          "deliveryFee": { "type": "number" },
+          "totalAmount": { "type": "number" },
+          "status": { "type": "string", "enum": ["PENDING", "PAID", "PROCESSING", "DISPATCHED", "DELIVERED", "CANCELLED", "REFUNDED"] },
+          "paymentMethod": { "type": "string", "enum": ["CASH_ON_DELIVERY", "ONLINE_STRIPE", "MOCK_GATEWAY"] }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/health": {
+      "get": {
+        "summary": "System Health and Database Connection Check",
+        "responses": {
+          "200": { "description": "System is healthy and database is connected" }
+        }
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "summary": "Register a new customer account",
+        "responses": { "201": { "description": "Customer registered successfully" } }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "summary": "Authenticate user and issue access/refresh token pair",
+        "responses": { "200": { "description": "Logged in successfully" } }
+      }
+    },
+    "/api/products": {
+      "get": {
+        "summary": "List products with search, category filtering, and stock status",
+        "parameters": [
+          { "name": "search", "in": "query", "schema": { "type": "string" } },
+          { "name": "categoryId", "in": "query", "schema": { "type": "string" } },
+          { "name": "inStockOnly", "in": "query", "schema": { "type": "boolean" } }
+        ],
+        "responses": { "200": { "description": "List of products" } }
+      },
+      "post": {
+        "summary": "Create a new product with variants and inventory",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "201": { "description": "Product created" } }
+      }
+    },
+    "/api/products/{slug}": {
+      "get": {
+        "summary": "Get product details by URL slug",
+        "parameters": [{ "name": "slug", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Product details" } }
+      }
+    },
+    "/api/cart": {
+      "get": {
+        "summary": "Get current customer or guest session shopping cart",
+        "responses": { "200": { "description": "Shopping cart breakdown" } }
+      }
+    },
+    "/api/cart/items": {
+      "post": {
+        "summary": "Add product variant item to cart with available stock verification",
+        "responses": { "200": { "description": "Item added to cart" } }
+      }
+    },
+    "/api/delivery/check": {
+      "get": {
+        "summary": "Verify PIN code serviceability and compute delivery fee",
+        "parameters": [
+          { "name": "pinCode", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "orderSubtotal", "in": "query", "schema": { "type": "number" } }
+        ],
+        "responses": { "200": { "description": "Serviceability and fee response" } }
+      }
+    },
+    "/api/orders/checkout": {
+      "post": {
+        "summary": "Atomic checkout and order creation with stock reservation",
+        "responses": { "201": { "description": "Order placed successfully" } }
+      }
+    },
+    "/api/orders/{id}": {
+      "get": {
+        "summary": "Track and view order details by ID or Order Number",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Order details" } }
+      }
+    },
+    "/api/payments/webhook": {
+      "post": {
+        "summary": "Stripe/Payment gateway webhook with HMAC-SHA256 signature verification and replay protection",
+        "responses": { "200": { "description": "Webhook processed" } }
+      }
+    },
+    "/api/invoices/{orderId}/render": {
+      "get": {
+        "summary": "Render printable HTML tax invoice for an order",
+        "parameters": [{ "name": "orderId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "HTML Invoice" } }
+      }
+    },
+    "/api/reports/dashboard": {
+      "get": {
+        "summary": "Operational metrics: revenue, order count, and low stock warnings",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Dashboard analytics" } }
+      }
+    }
+  }
+}
