@@ -375,4 +375,25 @@ describe('Security & RBAC Enforcement Tests (OWASP Verification)', () => {
     assert.ok(res.text.includes('&lt;script&gt;alert(&quot;XSS&quot;)&lt;/script&gt;'));
     assert.strictEqual(res.text.includes('<script>alert("XSS")</script>'), false);
   });
+
+  it('File Upload Protection: Rejects SVG files (image/svg+xml) with 400 Bad Request to prevent Stored XSS', async () => {
+    const maliciousSvg = '<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"><circle r="10"/></svg>';
+    const res = await request(app)
+      .post('/api/products/upload-image')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .attach('image', Buffer.from(maliciousSvg), {
+        filename: 'malicious.svg',
+        contentType: 'image/svg+xml'
+      });
+
+    assert.strictEqual(res.status, 400);
+    assert.strictEqual(res.body.success, false);
+    assert.ok(res.body.error.includes('Unsupported file type'));
+  });
+
+  it('Static Uploads Protection: Enforces nosniff and default-src none CSP headers on /uploads', async () => {
+    const res = await request(app).get('/uploads/nonexistent-file.png');
+    assert.strictEqual(res.headers['x-content-type-options'], 'nosniff');
+    assert.strictEqual(res.headers['content-security-policy'], "default-src 'none'");
+  });
 });
